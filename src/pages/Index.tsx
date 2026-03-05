@@ -4,14 +4,13 @@ import SplashScreen from "@/components/SplashScreen";
 import PresentationCarousel from "@/components/PresentationCarousel";
 import AdminPanel from "@/components/AdminPanel";
 import GlobalFooter from "@/components/GlobalFooter";
-import { useScoreData } from "@/hooks/useScoreData";
+import OfflineBanner from "@/components/OfflineBanner";
 import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
   const [showSplash, setShowSplash] = useState(true);
   const { user, loading } = useAuth();
   const navigate = useNavigate();
-  useScoreData();
 
   if (loading) {
     return (
@@ -23,6 +22,7 @@ const Index = () => {
 
   return (
     <div className="w-full h-screen overflow-hidden bg-background">
+      <OfflineBanner />
       {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       <PresentationCarousel />
       {user && <AdminPanel />}

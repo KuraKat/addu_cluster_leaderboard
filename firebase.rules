@@ -1,10 +1,50 @@
 rules_version = '2';
 
-// Only allow authenticated users to read/write data
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+    // Public read access for all collections (leaderboard should be publicly viewable)
+    match /games/{gameId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+    
+    match /grandFinals/{finalId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+    
+    match /clusterTeams/{teamId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+    
+    match /clusterTeamMatches/{matchId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+    
+    match /champions/{championId} {
+      allow read: if true;
+      allow write, delete: if request.auth != null;
+    }
+    
+    match /adminLogs/{logId} {
       allow read, write: if request.auth != null;
+    }
+    
+    match /admins/{adminId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Default fallback for any other collections
+    match /{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }

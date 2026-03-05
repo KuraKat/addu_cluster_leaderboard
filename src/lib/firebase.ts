@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence, signInAnonymously } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -14,8 +15,20 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const db = getFirestore(app);
 
 // Set auth persistence to none (logout on refresh)
 setPersistence(auth, inMemoryPersistence);
+
+// Auto sign in anonymously for public users
+export const signInAnonymouslyIfNeeded = async () => {
+  if (!auth.currentUser) {
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error('Anonymous sign in failed:', error);
+    }
+  }
+};
 
 export { signInWithEmailAndPassword, signOut };

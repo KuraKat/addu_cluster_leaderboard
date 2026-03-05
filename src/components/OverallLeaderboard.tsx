@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { Trophy } from "lucide-react";
-import { CLUSTER_CONFIG } from "@/types/leaderboard";
-import { calculateOverallScores, sortScores } from "@/lib/scoring";
-import { useScoreStore } from "@/hooks/useScoreData";
+import { Game, CLUSTER_CONFIG } from "@/types/leaderboard";
+import { getGameRanking } from "@/lib/scoring";
+import { useLeaderboardData } from "@/hooks/useLeaderboardData";
+import { sortScores, calculateOverallScores } from "@/lib/scoring";
 
 const MEDAL_STYLES = [
   { label: "1ST", colorClass: "text-gold", borderClass: "border-gold/60", glowClass: "glow-gold", size: "text-5xl" },
@@ -16,8 +17,8 @@ const PODIUM_ORDER = [1, 0, 2];
 const PODIUM_HEIGHTS = ["h-64", "h-48", "h-40"];
 
 export default function OverallLeaderboard() {
-  const { games } = useScoreStore();
-  const overall = sortScores(calculateOverallScores(games), (i) => i.totalScore);
+  const { slideData, getClusterLogoPath } = useLeaderboardData();
+  const overall = sortScores(calculateOverallScores(slideData.games), (i) => i.totalScore);
   const top3 = overall.slice(0, 3);
 
   return (
@@ -76,7 +77,7 @@ export default function OverallLeaderboard() {
                 className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-2 ${style.borderClass} ${style.glowClass} bg-card/80 flex items-center justify-center mb-3 overflow-hidden`}
               >
                 <img
-                  src={`/assets/cluster_logos/${entry.cluster.toLowerCase()}.jpg`}
+                  src={getClusterLogoPath(entry.cluster)}
                   alt={entry.cluster}
                   className="w-28 h-28 md:w-36 md:h-36 rounded-full object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}

@@ -1,8 +1,11 @@
 import { motion } from "framer-motion";
 import { Game, CLUSTER_CONFIG } from "@/types/leaderboard";
 import { getGameRanking } from "@/lib/scoring";
+import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 
 export default function GameLeaderboard({ game }: { game: Game }) {
+  const { getClusterLogoPath } = useLeaderboardData();
+  
   // Filter out clusters with 0 or undefined scores
   const ranking = getGameRanking(game)
     .filter((e) => e.score > 0);
@@ -61,7 +64,7 @@ export default function GameLeaderboard({ game }: { game: Game }) {
                   <div className="relative z-10 flex items-center justify-between w-full px-5">
                     <div className="flex items-center gap-3">
                       <img
-                        src={`/assets/cluster_logos/${entry.cluster.toLowerCase()}.jpg`}
+                        src={getClusterLogoPath(entry.cluster)}
                         alt={entry.cluster}
                         className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {

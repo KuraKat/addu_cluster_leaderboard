@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { auth, signOut } from '@/lib/firebase';
+import { auth, signOut, signInAnonymouslyIfNeeded } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
 export function useAuth() {
@@ -10,6 +10,9 @@ export function useAuth() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
+      
+      // Only try anonymous sign in if we need admin features
+      // For now, allow public access without authentication
     });
 
     return () => unsubscribe();
