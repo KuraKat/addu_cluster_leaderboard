@@ -4,20 +4,20 @@ import { Swords } from "lucide-react";
 import { CLUSTER_CONFIG, GrandFinalsMatch } from "@/types/leaderboard";
 import { useScoreStore } from "@/hooks/useScoreData";
 
-const PHASE_DURATION_MS = 7000;
-
 interface Props {
   match: GrandFinalsMatch;
   onComplete: () => void;
 }
 
 export default function GrandFinalsSlide({ match, onComplete }: Props) {
-  const { addBet } = useScoreStore();
+  const { addBet, slideDuration } = useScoreStore();
   const [phase, setPhase] = useState<"vs" | "vote">("vs");
   const [progress, setProgress] = useState(0);
 
   const configA = CLUSTER_CONFIG[match.clusterA];
   const configB = CLUSTER_CONFIG[match.clusterB];
+  
+  const PHASE_DURATION_MS = slideDuration * 1000;
 
   useEffect(() => {
     setPhase("vs");

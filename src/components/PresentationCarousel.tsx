@@ -9,7 +9,7 @@ import ChampionsSlide from "@/components/ChampionsSlide";
 export default function PresentationCarousel() {
   const { games, grandFinals, champions, slideDuration } = useScoreStore();
 
-  const activeGrandFinals = grandFinals.filter((f) => f.isActive);
+  const activeGrandFinals = grandFinals.filter((f) => f.isActive && !f.archived);
   // Active (non-retired) games with at least one non-zero score
   const activeGames = games.filter((g) => !g.retired && Object.values(g.scores).some((s) => s > 0));
   const hasChampions = champions.length > 0;

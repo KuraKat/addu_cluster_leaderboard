@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, X, Plus, Trash2, History, Archive, RotateCcw } from "lucide-react";
 import { useScoreData } from "@/hooks/useScoreData";
+import { useAuth } from "@/hooks/useAuth";
+import { X, Settings, Plus, Trash2, Archive, History, LogOut } from "lucide-react";
 import { ALL_CLUSTERS, ClusterName } from "@/types/leaderboard";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AdminPanel() {
+  const { logout } = useAuth();
   const [open, setOpen] = useState(false);
   const [newGameName, setNewGameName] = useState("");
   const [newFinalsTitle, setNewFinalsTitle] = useState("");
@@ -20,7 +22,8 @@ export default function AdminPanel() {
 
   const {
     games, updateScore, addGame, removeGame, retireGame, unretireGame, updateGameVisibility, updateGameTop3,
-    logs, grandFinals, addGrandFinals, removeGrandFinals, updateGrandFinals, slideDuration, updateSlideDuration,
+    logs, grandFinals, addGrandFinals, removeGrandFinals, updateGrandFinals, archiveGrandFinals, unarchiveGrandFinals,
+    slideDuration, updateSlideDuration,
   } = useScoreData();
 
   const handleTop5Toggle = (gameId: string, checked: boolean) => {
@@ -70,8 +73,10 @@ export default function AdminPanel() {
     }
   };
 
-  const activeGames = games.filter((g) => !g.retired);
-  const retiredGames = games.filter((g) => g.retired);
+  const activeGames = [...games.filter((g) => !g.retired)].reverse();
+  const retiredGames = [...games.filter((g) => g.retired)].reverse();
+  const activeFinals = [...grandFinals.filter((f) => !f.archived)].reverse();
+  const archivedFinals = [...grandFinals.filter((f) => f.archived)].reverse();
 
   return (
     <>
@@ -205,7 +210,7 @@ export default function AdminPanel() {
                               <span className="font-body text-sm text-foreground">{game.name}</span>
                               <div className="flex gap-2">
                                 <button onClick={() => unretireGame(game.id)} className="text-muted-foreground hover:text-green-500 transition-colors" title="Reactivate">
-                                  <RotateCcw className="w-4 h-4" />
+                                  <Archive className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => removeGame(game.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete permanently">
                                   <Trash2 className="w-4 h-4" />
@@ -240,11 +245,18 @@ export default function AdminPanel() {
                     </div>
 
                     {/* Existing matches */}
-                    {grandFinals.map((match) => (
+                    {activeFinals.map((match) => (
                       <div key={match.id} className="glass-surface rounded-lg p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Input value={match.eventTitle} onChange={(e) => updateGrandFinals(match.id, { eventTitle: e.target.value })} className="bg-muted border-border font-bold" />
-                          <button onClick={() => removeGrandFinals(match.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-2"><Trash2 className="w-4 h-4" /></button>
+                          <div className="flex gap-2">
+                            <button onClick={() => archiveGrandFinals(match.id)} className="text-muted-foreground hover:text-yellow-500 transition-colors" title="Archive">
+                              <Archive className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => removeGrandFinals(match.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Active in slides</span>
@@ -284,6 +296,29 @@ export default function AdminPanel() {
                         )}
                       </div>
                     ))}
+
+                    {/* Archived matches */}
+                    {archivedFinals.length > 0 && (
+                      <>
+                        <h3 className="font-body text-sm font-semibold text-muted-foreground mt-6">Archived Matches</h3>
+                        {archivedFinals.map((match) => (
+                          <div key={match.id} className="glass-surface rounded-lg p-4 space-y-3 opacity-60">
+                            <div className="flex items-center justify-between">
+                              <Input value={match.eventTitle} onChange={(e) => updateGrandFinals(match.id, { eventTitle: e.target.value })} className="bg-muted border-border font-bold" />
+                              <div className="flex gap-2">
+                                <button onClick={() => unarchiveGrandFinals(match.id)} className="text-muted-foreground hover:text-green-500 transition-colors" title="Unarchive">
+                                  <Archive className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => removeGrandFinals(match.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="text-xs text-muted-foreground">Archived - not shown in slides</div>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -325,6 +360,18 @@ export default function AdminPanel() {
                           className="bg-muted border-border h-10 w-20 text-base" 
                         />
                       </div>
+                    </div>
+
+                    <div className="glass-surface rounded-lg p-4 space-y-3">
+                      <h3 className="font-body text-sm font-semibold text-foreground">Session</h3>
+                      <Button
+                        onClick={logout}
+                        className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Log Out
+                      </Button>
+                      <p className="text-xs text-muted-foreground">You will need to log in again to access admin features</p>
                     </div>
                   </div>
                 )}

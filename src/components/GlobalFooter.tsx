@@ -17,7 +17,7 @@ export default function GlobalFooter() {
         </span>
       </div>
       <div className="text-xs text-muted-foreground font-body">
-        Developed by: <a href="https://github.com/KuraKat" target="_blank" rel="noopener noreferrer" className="text-foreground font-medium hover:text-primary transition-colors">Evan Toledo</a>
+        Developed by: <a href="https://github.com/KuraKat" target="_blank" rel="noopener noreferrer" className="text-foreground font-medium hover:text-primary transition-colors">Evan Toledo, Kibs</a>
       </div>
     </div>
   );

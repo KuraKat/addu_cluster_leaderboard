@@ -63,6 +63,7 @@ export interface GrandFinalsMatch {
   betsA: number;
   betsB: number;
   votingEnabled?: boolean; // if true, voting buttons are shown, default false
+  archived?: boolean; // if true, match is archived and doesn't show in active list
 }
 
 export interface Champion {
