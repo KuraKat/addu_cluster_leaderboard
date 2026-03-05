@@ -69,7 +69,8 @@ export default function PresentationCarousel() {
       idx -= games.length;
       
       // Champions slide (last position)
-      if (hasChampions && idx === getChampionsSlideIndex()) return advancedSlideTiming.hallOfChampions;
+      // After subtracting all previous sections, idx should be 0 for champions
+      if (hasChampions && idx === 0) return advancedSlideTiming.hallOfChampions;
       
       return slideDuration; // fallback
     }
@@ -80,7 +81,7 @@ export default function PresentationCarousel() {
   // Calculate champions slide index dynamically
   const getChampionsSlideIndex = useCallback(() => {
     return 1 + grandFinals.length + clusterTeamMatches.length + games.length;
-  }, [grandFinals.length, clusterTeamMatches.length, games.length]);
+  }, [grandFinals.length, clusterTeamMatches.length, games.length, hasChampions]);
 
   const SLIDE_DURATION_MS = getSlideDuration(currentSlide) * 1000;
 

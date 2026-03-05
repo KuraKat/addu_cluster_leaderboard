@@ -712,7 +712,7 @@ export default function AdminPanel() {
                       
                       <div className="space-y-6">
                         {ALL_CLUSTERS.map((cluster) => {
-                          // Get detailed game information
+                          // Get detailed game information (include archived games)
                           const gameDetails = games.all
                             .filter(game => game.scores[cluster] > 0)
                             .map(game => ({
@@ -720,7 +720,7 @@ export default function AdminPanel() {
                               points: game.scores[cluster]
                             }));
 
-                          // Get detailed grand finals information
+                          // Get detailed grand finals information (include archived finals)
                           const grandFinalsDetails = grandFinals.all
                             .filter(final => {
                               return (final.clusterA === cluster && final.betsA > 0) || 
@@ -735,23 +735,34 @@ export default function AdminPanel() {
                               };
                             });
 
-                          // Get detailed team match information
+                          // Get detailed team match information (include archived matches)
                           const teamMatchDetails = clusterTeamMatches
                             .filter(match => {
                               // Only include matches that have a winner
-                              return match.winner && 
-                                match.teamA === teamA.id && match.teamB === teamB.id;
+                              if (!match.winner) return false;
+                              
+                              // Find teams for this match
+                              const matchTeamA = clusterTeams.find(t => t.id === match.teamA);
+                              const matchTeamB = clusterTeams.find(t => t.id === match.teamB);
+                              
+                              // Check if current cluster is in either team
+                              return matchTeamA?.clusters.includes(cluster) || matchTeamB?.clusters.includes(cluster);
                             })
                             .map(match => {
-                              const winnerTeamObj = match.winner === 'A' ? teamA : teamB;
-                              const loserTeamObj = match.winner === 'A' ? teamB : teamA;
+                              const matchTeamA = clusterTeams.find(t => t.id === match.teamA);
+                              const matchTeamB = clusterTeams.find(t => t.id === match.teamB);
+                              const winnerTeamObj = match.winner === 'A' ? matchTeamA : matchTeamB;
+                              const loserTeamObj = match.winner === 'A' ? matchTeamB : matchTeamA;
+                              
+                              // Only add points if current cluster is in winning team
+                              const isInWinningTeam = winnerTeamObj?.clusters.includes(cluster);
                               
                               return {
-                                name: `${match.eventTitle}: ${winnerTeamObj.name} vs ${loserTeamObj.name}`,
-                                points: match.winningPoints,
-                                result: match.winner === 'A' ? 'Win' : 'Loss',
-                                winnerTeam: winnerTeamObj.name,
-                                loserTeam: loserTeamObj.name
+                                name: `${match.eventTitle}: ${winnerTeamObj?.name || 'Unknown'} vs ${loserTeamObj?.name || 'Unknown'}`,
+                                points: isInWinningTeam ? match.winningPoints : match.losingPoints,
+                                result: isInWinningTeam ? 'Win' : 'Loss',
+                                winnerTeam: winnerTeamObj?.name || 'Unknown',
+                                loserTeam: loserTeamObj?.name || 'Unknown'
                               };
                             });
 
@@ -975,6 +986,17 @@ export default function AdminPanel() {
                 {/* Misc Tab */}
                 {tab === "misc" && (
                   <div className="space-y-6">
+                    <div className="glass-surface rounded-lg p-4 space-y-3">
+                      <h3 className="font-body text-sm font-semibold text-foreground">Version</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Application Version</label>
+                          <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
+                        </div>
+                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.1.4</div>
+                      </div>
+                    </div>
+
                     <div className="glass-surface rounded-lg p-4 space-y-3">
                       <h3 className="font-body text-sm font-semibold text-foreground">Slide Settings</h3>
                       

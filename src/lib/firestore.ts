@@ -16,11 +16,10 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Game, ClusterName, PointLog, GrandFinalsMatch, Champion, ClusterTeam, ClusterTeamMatch, PendingChange, AdminLog } from '@/types/leaderboard';
+import { Game, ClusterName, PointLog, GrandFinalsMatch, Champion, ClusterTeam, ClusterTeamMatch, PendingChange, AdminLog, AdvancedSlideTiming } from '@/types/leaderboard';
 
 // Collection references
 const GAMES_COLLECTION = 'games';
-const LOGS_COLLECTION = 'logs';
 const FINALS_COLLECTION = 'grandFinals';
 const CHAMPIONS_COLLECTION = 'champions';
 const TEAMS_COLLECTION = 'clusterTeams';
@@ -77,18 +76,8 @@ export const gamesService = {
       updatedAt: serverTimestamp()
     });
 
-    // Create log entry
+    // Create admin log
     if (diff !== 0) {
-      const logRef = doc(collection(db, LOGS_COLLECTION));
-      await setDoc(logRef, {
-        gameId,
-        gameName: oldGame.name,
-        cluster,
-        pointsAdded: diff,
-        timestamp: serverTimestamp()
-      });
-
-      // Create admin log
       const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
       await setDoc(adminLogRef, {
         adminEmail,
@@ -708,6 +697,24 @@ export const settingsService = {
     });
   },
 
+  subscribeToAdvancedSlideTiming(callback: (timing: AdvancedSlideTiming) => void) {
+    return onSnapshot(doc(db, SETTINGS_COLLECTION, 'advancedSlideTiming'), (doc) => {
+      if (doc.exists()) {
+        callback(doc.data() as AdvancedSlideTiming);
+      } else {
+        // Default values if document doesn't exist
+        callback({
+          overallStanding: 7,
+          games: 7,
+          hallOfChampions: 7,
+          grandFinals: 7,
+          clusterTeamMatches: 7,
+          useAdvanced: false
+        });
+      }
+    });
+  },
+
   async updateSlideDuration(duration: number, adminEmail: string, adminName: string): Promise<void> {
     await setDoc(doc(db, SETTINGS_COLLECTION, 'slideDuration'), {
       value: duration,
@@ -726,6 +733,7 @@ export const settingsService = {
     });
   },
 
+  // Logs advanced slide timing updates
   async updateAdvancedSlideTiming(timing: any, adminEmail: string, adminName: string): Promise<void> {
     await setDoc(doc(db, SETTINGS_COLLECTION, 'advancedSlideTiming'), {
       ...timing,

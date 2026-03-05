@@ -145,6 +145,12 @@ export function useFirestoreData(): FirestoreDataStore {
         })
       );
 
+      unsubscribers.push(
+        settingsService.subscribeToAdvancedSlideTiming((timing) => {
+          setAdvancedSlideTiming(timing);
+        })
+      );
+
       setLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -390,7 +396,7 @@ export function useFirestoreData(): FirestoreDataStore {
       setError(err instanceof Error ? err.message : 'Failed to update advanced slide timing');
       throw err;
     }
-  }, [getAdminInfo]);
+  }, [getAdminInfo, setAdvancedSlideTiming]);
 
   return {
     games,

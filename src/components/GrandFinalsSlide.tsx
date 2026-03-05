@@ -31,7 +31,7 @@ export default function GrandFinalsSlide({ match, onComplete, isAdmin = false }:
     const startTime = Date.now();
     const interval = setInterval(() => {
       const elapsed = Date.now() - startTime;
-      const totalDuration = currentSlideDuration * 1000 * 2; // Use dynamic slideDuration
+      const totalDuration = currentSlideDuration * 1000; // Remove *2 - each phase gets the full duration
       const newProgress = Math.min((elapsed / totalDuration) * 100, 100);
       setProgress(newProgress);
       
