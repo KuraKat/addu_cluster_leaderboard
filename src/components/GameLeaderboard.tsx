@@ -52,7 +52,7 @@ export default function GameLeaderboard({ game }: { game: Game }) {
                     initial={{ width: 0 }}
                     animate={{ width: `${(entry.score / maxScore) * 100}%` }}
                     transition={{ delay: 0.5 + i * 0.1, duration: 0.8, ease: "easeOut" }}
-                    className={`absolute inset-y-0 left-0 rounded-lg ${config.bgColor}`}
+                    className={`absolute inset-y-0 left-0 ${config.bgColor} [clip-path:inset(0_round_0.5rem)]`}
                   />
                   <div className="relative z-10 flex items-center justify-between w-full px-5">
                     <div className="flex items-center gap-3">
