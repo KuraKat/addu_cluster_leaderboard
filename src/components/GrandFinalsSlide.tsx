@@ -14,15 +14,32 @@ interface Props {
 export default function GrandFinalsSlide({ match, onComplete }: Props) {
   const { addBet } = useScoreStore();
   const [phase, setPhase] = useState<"vs" | "vote">("vs");
+  const [progress, setProgress] = useState(0);
 
   const configA = CLUSTER_CONFIG[match.clusterA];
   const configB = CLUSTER_CONFIG[match.clusterB];
 
   useEffect(() => {
     setPhase("vs");
-    const t1 = setTimeout(() => setPhase("vote"), PHASE_DURATION_MS);
-    const t2 = setTimeout(() => onComplete(), PHASE_DURATION_MS * 2);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    setProgress(0);
+    
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const totalDuration = PHASE_DURATION_MS * 2;
+      const newProgress = Math.min((elapsed / totalDuration) * 100, 100);
+      setProgress(newProgress);
+      
+      if (elapsed >= PHASE_DURATION_MS && phase === "vs") {
+        setPhase("vote");
+      }
+      if (elapsed >= totalDuration) {
+        clearInterval(interval);
+        onComplete();
+      }
+    }, 50);
+    
+    return () => { clearInterval(interval); };
   }, [match.id, onComplete]);
 
   return (
@@ -46,8 +63,12 @@ export default function GrandFinalsSlide({ match, onComplete }: Props) {
             <img src={`/assets/cluster_logos/${match.clusterA.toLowerCase()}.jpg`} alt={match.clusterA} className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           </div>
           <span className={`font-display text-xl md:text-2xl font-bold ${configA.color}`}>{match.clusterA}</span>
-          <span className="font-display text-3xl font-black text-foreground mt-2">{match.betsA}</span>
-          <span className="text-xs text-muted-foreground">votes</span>
+          {match.votingEnabled && (
+            <>
+              <span className="font-display text-3xl font-black text-foreground mt-2">{match.betsA}</span>
+              <span className="text-xs text-muted-foreground">votes</span>
+            </>
+          )}
         </motion.div>
 
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5, type: "spring" }} className="flex flex-col items-center">
@@ -65,8 +86,12 @@ export default function GrandFinalsSlide({ match, onComplete }: Props) {
             <img src={`/assets/cluster_logos/${match.clusterB.toLowerCase()}.jpg`} alt={match.clusterB} className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           </div>
           <span className={`font-display text-xl md:text-2xl font-bold ${configB.color}`}>{match.clusterB}</span>
-          <span className="font-display text-3xl font-black text-foreground mt-2">{match.betsB}</span>
-          <span className="text-xs text-muted-foreground">votes</span>
+          {match.votingEnabled && (
+            <>
+              <span className="font-display text-3xl font-black text-foreground mt-2">{match.betsB}</span>
+              <span className="text-xs text-muted-foreground">votes</span>
+            </>
+          )}
         </motion.div>
       </div>
 
@@ -87,6 +112,14 @@ export default function GrandFinalsSlide({ match, onComplete }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Progress Bar */}
+      <div className="absolute bottom-12 left-0 w-full h-1 bg-muted/30">
+        <div 
+          className="h-full bg-primary transition-all duration-100 ease-linear"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }

@@ -14,13 +14,13 @@ export default function AdminPanel() {
   const [newFinalsTitle, setNewFinalsTitle] = useState("");
   const [newFinalsA, setNewFinalsA] = useState<ClusterName>("Salamanca");
   const [newFinalsB, setNewFinalsB] = useState<ClusterName>("Barcelona");
-  const [tab, setTab] = useState<"games" | "finals" | "logs">("games");
-  const [advancedMode, setAdvancedMode] = useState(false);
-  const [incrementAmount, setIncrementAmount] = useState(5);
+  const [tab, setTab] = useState<"games" | "finals" | "logs" | "misc">("games");
+  const [incrementMode, setIncrementMode] = useState(false);
+  const [incrementAmount, setIncrementAmount] = useState(1);
 
   const {
     games, updateScore, addGame, removeGame, retireGame, unretireGame, updateGameVisibility, updateGameTop3,
-    logs, grandFinals, addGrandFinals, removeGrandFinals, updateGrandFinals,
+    logs, grandFinals, addGrandFinals, removeGrandFinals, updateGrandFinals, slideDuration, updateSlideDuration,
   } = useScoreData();
 
   const handleTop5Toggle = (gameId: string, checked: boolean) => {
@@ -101,36 +101,38 @@ export default function AdminPanel() {
 
                 {/* Tabs */}
                 <div className="flex gap-2 mb-6">
-                  {(["games", "finals", "logs"] as const).map((t) => (
+                  {(["games", "finals", "logs", "misc"] as const).map((t) => (
                     <button key={t} onClick={() => setTab(t)} className={`px-4 py-2 rounded-lg font-body text-sm font-medium transition-colors ${tab === t ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"}`}>
-                      {t === "games" ? "Games" : t === "finals" ? "Grand Finals" : "Logs"}
+                      {t === "games" ? "Games" : t === "finals" ? "Grand Finals" : t === "logs" ? "Logs" : "Misc"}
                     </button>
                   ))}
                 </div>
 
-                {/* Advanced Mode Toggle */}
-                <div className="flex items-center justify-between mb-6 p-4 bg-muted/30 rounded-lg">
-                  <div>
-                    <span className="text-sm font-medium text-foreground">Advanced Mode</span>
-                    <p className="text-xs text-muted-foreground">Enable increment/decrement buttons for scores</p>
+                {/* Increment Mode Toggle - Only show for Games tab */}
+                {tab === "games" && (
+                  <div className="flex items-center justify-between mb-6 p-4 bg-muted/30 rounded-lg">
+                    <div>
+                      <span className="text-sm font-medium text-foreground">Increment Mode</span>
+                      <p className="text-xs text-muted-foreground">Enable increment/decrement buttons for scores</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {incrementMode && (
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs text-muted-foreground">Increment:</label>
+                          <Input 
+                            type="number" 
+                            min={1} 
+                            max={100} 
+                            value={incrementAmount} 
+                            onChange={(e) => setIncrementAmount(Number(e.target.value) || 1)} 
+                            className="bg-background border-border h-8 w-20 text-sm" 
+                          />
+                        </div>
+                      )}
+                      <Switch checked={incrementMode} onCheckedChange={setIncrementMode} />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {advancedMode && (
-                      <div className="flex items-center gap-2">
-                        <label className="text-xs text-muted-foreground">Increment:</label>
-                        <Input 
-                          type="number" 
-                          min={1} 
-                          max={100} 
-                          value={incrementAmount} 
-                          onChange={(e) => setIncrementAmount(Number(e.target.value) || 5)} 
-                          className="bg-background border-border h-8 w-16 text-sm" 
-                        />
-                      </div>
-                    )}
-                    <Switch checked={advancedMode} onCheckedChange={setAdvancedMode} />
-                  </div>
-                </div>
+                )}
 
                 {/* Games Tab */}
                 {tab === "games" && (
@@ -163,23 +165,23 @@ export default function AdminPanel() {
                             <span className="text-base text-muted-foreground">Show top 3 only</span>
                             <Switch checked={game.showTop3} onCheckedChange={(checked) => handleTop3Toggle(game.id, checked)} />
                           </div>
-                          <div className={`grid gap-3 ${advancedMode ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                          <div className="grid gap-4 grid-cols-2">
                             {ALL_CLUSTERS.map((cluster) => (
-                              <div key={cluster} className="flex items-center gap-2">
-                                <label className="text-base text-muted-foreground w-28 truncate">{cluster}</label>
-                                <Input type="number" min={0} value={game.scores[cluster]} onChange={(e) => updateScore(game.id, cluster, Number(e.target.value) || 0)} className="bg-muted border-border h-10 text-base w-24" />
-                                {advancedMode && (
-                                  <div className="flex gap-1">
+                              <div key={cluster} className="space-y-3">
+                                <label className="text-base text-muted-foreground block text-center">{cluster}</label>
+                                <Input type="number" min={0} value={game.scores[cluster]} onChange={(e) => updateScore(game.id, cluster, Number(e.target.value) || 0)} className="bg-muted border-border h-10 text-base w-full" />
+                                {incrementMode && (
+                                  <div className="flex gap-2">
                                     <button 
                                       onClick={() => handleDecrement(game.id, cluster)} 
-                                      className="w-8 h-8 rounded bg-red-500/20 hover:bg-red-500/30 text-red-500 flex items-center justify-center text-base font-bold transition-colors"
+                                      className="flex-1 h-8 rounded bg-red-500/20 hover:bg-red-500/30 text-red-500 flex items-center justify-center text-base font-bold transition-colors"
                                       title={`Decrease by ${incrementAmount}`}
                                     >
                                       -
                                     </button>
                                     <button 
                                       onClick={() => handleIncrement(game.id, cluster)} 
-                                      className="w-8 h-8 rounded bg-green-500/20 hover:bg-green-500/30 text-green-500 flex items-center justify-center text-base font-bold transition-colors"
+                                      className="flex-1 h-8 rounded bg-green-500/20 hover:bg-green-500/30 text-green-500 flex items-center justify-center text-base font-bold transition-colors"
                                       title={`Increase by ${incrementAmount}`}
                                     >
                                       +
@@ -268,16 +270,18 @@ export default function AdminPanel() {
                             </Select>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-xs text-muted-foreground">Votes A</label>
-                            <Input type="number" min={0} value={match.betsA} onChange={(e) => updateGrandFinals(match.id, { betsA: Number(e.target.value) || 0 })} className="bg-muted border-border" />
+                        {match.votingEnabled && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-xs text-muted-foreground">Votes A</label>
+                              <Input type="number" min={0} value={match.betsA} onChange={(e) => updateGrandFinals(match.id, { betsA: Number(e.target.value) || 0 })} className="bg-muted border-border" />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground">Votes B</label>
+                              <Input type="number" min={0} value={match.betsB} onChange={(e) => updateGrandFinals(match.id, { betsB: Number(e.target.value) || 0 })} className="bg-muted border-border" />
+                            </div>
                           </div>
-                          <div>
-                            <label className="text-xs text-muted-foreground">Votes B</label>
-                            <Input type="number" min={0} value={match.betsB} onChange={(e) => updateGrandFinals(match.id, { betsB: Number(e.target.value) || 0 })} className="bg-muted border-border" />
-                          </div>
-                        </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -299,6 +303,29 @@ export default function AdminPanel() {
                         </span>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Misc Tab */}
+                {tab === "misc" && (
+                  <div className="space-y-6">
+                    <div className="glass-surface rounded-lg p-4 space-y-3">
+                      <h3 className="font-body text-sm font-semibold text-foreground">Slide Settings</h3>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Time per Slide (seconds)</label>
+                          <p className="text-xs text-muted-foreground">How long each slide displays before auto-advancing</p>
+                        </div>
+                        <Input 
+                          type="number" 
+                          min={1} 
+                          max={60} 
+                          value={slideDuration} 
+                          onChange={(e) => updateSlideDuration(Number(e.target.value) || 7)} 
+                          className="bg-muted border-border h-10 w-20 text-base" 
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>

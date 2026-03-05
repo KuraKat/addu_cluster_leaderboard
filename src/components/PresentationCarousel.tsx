@@ -6,12 +6,8 @@ import GameLeaderboard from "@/components/GameLeaderboard";
 import GrandFinalsSlide from "@/components/GrandFinalsSlide";
 import ChampionsSlide from "@/components/ChampionsSlide";
 
-/** Duration (in ms) each slide stays visible before advancing. */
-const SECONDS_PER_SLIDE = 7;
-const SLIDE_DURATION_MS = SECONDS_PER_SLIDE * 1000;
-
 export default function PresentationCarousel() {
-  const { games, grandFinals, champions } = useScoreStore();
+  const { games, grandFinals, champions, slideDuration } = useScoreStore();
 
   const activeGrandFinals = grandFinals.filter((f) => f.isActive);
   // Active (non-retired) games with at least one non-zero score
@@ -25,6 +21,8 @@ export default function PresentationCarousel() {
   const [progress, setProgress] = useState(0);
   const startTimeRef = useRef(Date.now());
   const [isGrandFinalsPlaying, setIsGrandFinalsPlaying] = useState(false);
+  
+  const SLIDE_DURATION_MS = slideDuration * 1000;
 
   const prevSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);

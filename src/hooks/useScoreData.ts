@@ -31,6 +31,8 @@ const MOCK_GAMES: Game[] = [
   },
 ];
 
+const SETTINGS_KEY = "leaderboard-settings";
+
 function load<T>(key: string, fallback: T): T {
   try {
     const stored = localStorage.getItem(key);
@@ -48,6 +50,7 @@ interface ScoreStore {
   logs: PointLog[];
   grandFinals: GrandFinalsMatch[];
   champions: Champion[];
+  slideDuration: number; // Duration in seconds per slide
   updateScore: (gameId: string, cluster: ClusterName, score: number) => void;
   addGame: (name: string) => void;
   removeGame: (gameId: string) => void;
@@ -59,6 +62,7 @@ interface ScoreStore {
   removeGrandFinals: (id: string) => void;
   updateGrandFinals: (id: string, updates: Partial<GrandFinalsMatch>) => void;
   addBet: (id: string, side: "A" | "B") => void;
+  updateSlideDuration: (duration: number) => void;
   _setGames: (games: Game[]) => void;
   _setLogs: (logs: PointLog[]) => void;
   _setFinals: (finals: GrandFinalsMatch[]) => void;
@@ -70,6 +74,7 @@ export const useScoreStore = create<ScoreStore>((set, get) => ({
   logs: load<PointLog[]>(LOGS_KEY, []),
   grandFinals: load<GrandFinalsMatch[]>(FINALS_KEY, []),
   champions: load<Champion[]>(CHAMPIONS_KEY, []),
+  slideDuration: load<number>(SETTINGS_KEY, 7),
 
   updateScore: (gameId, cluster, score) => {
     const state = get();
@@ -203,6 +208,11 @@ export const useScoreStore = create<ScoreStore>((set, get) => ({
     });
     save(FINALS_KEY, finals);
     set({ grandFinals: finals });
+  },
+
+  updateSlideDuration: (duration) => {
+    save(SETTINGS_KEY, duration);
+    set({ slideDuration: duration });
   },
 
   _setGames: (games) => set({ games }),
