@@ -54,12 +54,14 @@ interface FirestoreDataStore {
   updateClusterTeam: (teamId: string, updates: Partial<ClusterTeam>) => Promise<void>;
   removeClusterTeam: (teamId: string) => Promise<void>;
   
-  // Team match operations
+  // Team Match operations
   addClusterTeamMatch: (match: Omit<ClusterTeamMatch, 'id'>) => Promise<void>;
   updateClusterTeamMatch: (matchId: string, updates: Partial<ClusterTeamMatch>) => Promise<void>;
   deleteClusterTeamMatch: (matchId: string) => Promise<void>;
   setMatchWinner: (matchId: string, winner: "A" | "B") => Promise<void>;
   undoMatchWinner: (matchId: string) => Promise<void>;
+  archiveClusterTeamMatch: (matchId: string) => Promise<void>;
+  unarchiveClusterTeamMatch: (matchId: string) => Promise<void>;
   
   // Settings
   updateSlideDuration: (duration: number) => Promise<void>;
@@ -365,6 +367,26 @@ export function useFirestoreData(): FirestoreDataStore {
     }
   }, [getAdminInfo]);
 
+  const archiveClusterTeamMatch = useCallback(async (matchId: string) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await clusterTeamMatchesService.archive(matchId, adminInfo.email, adminInfo.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to archive team match');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
+  const unarchiveClusterTeamMatch = useCallback(async (matchId: string) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await clusterTeamMatchesService.unarchive(matchId, adminInfo.email, adminInfo.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unarchive team match');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
   const deleteClusterTeamMatch = useCallback(async (matchId: string) => {
     try {
       const adminInfo = getAdminInfo();
@@ -431,9 +453,11 @@ export function useFirestoreData(): FirestoreDataStore {
     
     addClusterTeamMatch,
     updateClusterTeamMatch,
-    deleteClusterTeamMatch,
     setMatchWinner,
     undoMatchWinner,
+    archiveClusterTeamMatch,
+    unarchiveClusterTeamMatch,
+    deleteClusterTeamMatch,
     
     updateSlideDuration,
     updateAdvancedSlideTiming,

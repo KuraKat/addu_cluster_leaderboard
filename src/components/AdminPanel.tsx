@@ -80,7 +80,7 @@ export default function AdminPanel() {
     addGrandFinals, removeGrandFinals, updateGrandFinals, archiveGrandFinals, unarchiveGrandFinals,
     slideDuration, updateSlideDuration, advancedSlideTiming, updateAdvancedSlideTiming,
     addClusterTeam, updateClusterTeam, removeClusterTeam,
-    addClusterTeamMatch, updateClusterTeamMatch, deleteClusterTeamMatch, setMatchWinner, undoMatchWinner,
+    addClusterTeamMatch, updateClusterTeamMatch, deleteClusterTeamMatch, setMatchWinner, undoMatchWinner, archiveClusterTeamMatch, unarchiveClusterTeamMatch,
   } = useFirestoreData();
   
   const { games, grandFinals, clusterTeams, clusterTeamMatches, champions, adminLogs } = adminData;
@@ -622,7 +622,7 @@ export default function AdminPanel() {
                                 </button>
                               )}
                               <button 
-                                onClick={() => updateClusterTeamMatch(match.id, { archived: true })} 
+                                onClick={() => archiveClusterTeamMatch(match.id)} 
                                 className="text-muted-foreground hover:text-yellow-500 transition-colors" 
                                 title="Archive"
                               >
@@ -997,7 +997,7 @@ export default function AdminPanel() {
                           <label className="text-sm text-muted-foreground">Application Version</label>
                           <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
                         </div>
-                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.1.5</div>
+                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.1.6</div>
                       </div>
                     </div>
 

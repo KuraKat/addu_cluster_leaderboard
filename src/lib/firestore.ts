@@ -487,8 +487,44 @@ export const clusterTeamMatchesService = {
     await setDoc(adminLogRef, {
       adminEmail,
       adminName,
-      action: 'team_match_delete',
       details: `Deleted team match with ID: ${matchId}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  async archive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
+    await updateDoc(doc(db, TEAM_MATCHES_COLLECTION, matchId), {
+      archived: true,
+      isActive: false,
+      archivedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'team_match_archive',
+      details: `Archived team match with ID: ${matchId}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  async unarchive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
+    await updateDoc(doc(db, TEAM_MATCHES_COLLECTION, matchId), {
+      archived: false,
+      unarchivedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'team_match_unarchive',
+      details: `Unarchived team match with ID: ${matchId}`,
       timestamp: serverTimestamp(),
       approved: true
     });

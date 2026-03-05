@@ -4,6 +4,7 @@ import { Game, CLUSTER_CONFIG } from "@/types/leaderboard";
 import { getGameRanking } from "@/lib/scoring";
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 import { calculateUnifiedOverallScores, sortScores } from "@/lib/unifiedScoring";
+import { useFirestoreData } from "@/hooks/useFirestoreData";
 
 const MEDAL_STYLES = [
   { label: "1ST", colorClass: "text-gold", borderClass: "border-gold/60", glowClass: "glow-gold", size: "text-5xl" },
@@ -17,8 +18,10 @@ const PODIUM_ORDER = [1, 0, 2];
 const PODIUM_HEIGHTS = ["h-64", "h-48", "h-40"];
 
 export default function OverallLeaderboard() {
-  const { slideData, getClusterLogoPath } = useLeaderboardData();
-  const overall = sortScores(calculateUnifiedOverallScores(slideData.games, slideData.clusterTeams, slideData.clusterTeamMatches), (i) => i.totalScore);
+  const { slideData, getClusterLogoPath, adminData } = useLeaderboardData();
+  
+  // Use all games (including archived) for scoring to match AdminPanel tallied points
+  const overall = sortScores(calculateUnifiedOverallScores(adminData.games.all, adminData.clusterTeams, adminData.clusterTeamMatches), (i) => i.totalScore);
   const top3 = overall.slice(0, 3);
 
   return (
