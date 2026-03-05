@@ -61,6 +61,8 @@ export function useLeaderboardData() {
     const retiredGames = games.filter((g) => g.retired);
     const activeFinals = grandFinals.filter((f) => !f.archived);
     const archivedFinals = grandFinals.filter((f) => f.archived);
+    const activeTeamMatches = clusterTeamMatches.filter((m) => !m.archived);
+    const archivedTeamMatches = clusterTeamMatches.filter((m) => m.archived);
 
     return {
       games: {
@@ -73,9 +75,13 @@ export function useLeaderboardData() {
         archived: archivedFinals,
         all: grandFinals
       },
+      clusterTeamMatches: {
+        active: activeTeamMatches,
+        archived: archivedTeamMatches,
+        all: clusterTeamMatches
+      },
       champions,
       clusterTeams,
-      clusterTeamMatches,
       adminLogs,
       slideDuration,
       loading,

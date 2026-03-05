@@ -21,7 +21,7 @@ export default function OverallLeaderboard() {
   const { slideData, getClusterLogoPath, adminData } = useLeaderboardData();
   
   // Use all games (including archived) for scoring to match AdminPanel tallied points
-  const overall = sortScores(calculateUnifiedOverallScores(adminData.games.all, adminData.clusterTeams, adminData.clusterTeamMatches), (i) => i.totalScore);
+  const overall = sortScores(calculateUnifiedOverallScores(adminData.games.all, adminData.clusterTeams, adminData.clusterTeamMatches.all), (i) => i.totalScore);
   const top3 = overall.slice(0, 3);
 
   return (

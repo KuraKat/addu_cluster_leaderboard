@@ -83,7 +83,7 @@ export default function AdminPanel() {
     addClusterTeamMatch, updateClusterTeamMatch, deleteClusterTeamMatch, setMatchWinner, undoMatchWinner, archiveClusterTeamMatch, unarchiveClusterTeamMatch,
   } = useFirestoreData();
   
-  const { games, grandFinals, clusterTeams, clusterTeamMatches, champions, adminLogs } = adminData;
+  const { games, grandFinals, clusterTeamMatches, clusterTeams, champions, adminLogs } = adminData;
 
   const [open, setOpen] = useState(false);
   const [newGameName, setNewGameName] = useState("");
@@ -599,7 +599,7 @@ export default function AdminPanel() {
                     </div>
 
                     {/* Existing matches */}
-                    {clusterTeamMatches.map((match) => {
+                    {clusterTeamMatches.active.map((match) => {
                       const teamA = clusterTeams.find(t => t.id === match.teamA);
                       const teamB = clusterTeams.find(t => t.id === match.teamB);
                       
@@ -699,6 +699,50 @@ export default function AdminPanel() {
                         </div>
                       );
                     })}
+
+                    {/* Archived Team Matches */}
+                    {clusterTeamMatches.archived.length > 0 && (
+                      <>
+                        <h3 className="font-display text-sm font-bold text-muted-foreground mt-8 mb-4 tracking-wider">ARCHIVED MATCHES</h3>
+                        <div className="space-y-3">
+                          {clusterTeamMatches.archived.map((match) => {
+                            const teamA = clusterTeams.find(t => t.id === match.teamA);
+                            const teamB = clusterTeams.find(t => t.id === match.teamB);
+                            
+                            return (
+                              <div key={match.id} className="glass-surface rounded-lg px-4 py-3 flex items-center justify-between opacity-70">
+                                <div>
+                                  <span className="font-body text-sm text-foreground">{match.eventTitle}</span>
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    {teamA?.name || 'Unknown'} vs {teamB?.name || 'Unknown'}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => unarchiveClusterTeamMatch(match.id)} 
+                                    className="text-muted-foreground hover:text-green-500 transition-colors" 
+                                    title="Reactivate"
+                                  >
+                                    <Archive className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={() => {
+                                      if (confirm('Are you sure you want to delete this match permanently?')) {
+                                        deleteClusterTeamMatch(match.id);
+                                      }
+                                    }} 
+                                    className="text-muted-foreground hover:text-destructive transition-colors" 
+                                    title="Delete permanently"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
 
@@ -714,7 +758,7 @@ export default function AdminPanel() {
                       <div className="space-y-6">
                         {ALL_CLUSTERS.map((cluster) => {
                           // Calculate unified scores using the same function as Overall Standings
-                          const unifiedScores = calculateUnifiedOverallScores(games.all, clusterTeams, clusterTeamMatches);
+                          const unifiedScores = calculateUnifiedOverallScores(games.all, clusterTeams, clusterTeamMatches.all);
                           const clusterTotalScore = unifiedScores.find(score => score.cluster === cluster)?.totalScore || 0;
                           
                           // Get detailed game information (include archived games)
@@ -741,7 +785,7 @@ export default function AdminPanel() {
                             });
 
                           // Get detailed team match information (include archived matches)
-                          const teamMatchDetails = clusterTeamMatches
+                          const teamMatchDetails = clusterTeamMatches.all
                             .filter(match => {
                               // Only include matches that have a winner
                               if (!match.winner) return false;
@@ -930,7 +974,7 @@ export default function AdminPanel() {
                               const match = log.details.match(/Set winner for match (.+): Team (.+)/);
                               if (match) {
                                 const [, matchTitle] = match;
-                                const teamMatch = clusterTeamMatches.find(m => m.eventTitle === matchTitle);
+                                const teamMatch = clusterTeamMatches.all.find(m => m.eventTitle === matchTitle);
                                 if (teamMatch) {
                                   await undoMatchWinner(teamMatch.id);
                                 }
