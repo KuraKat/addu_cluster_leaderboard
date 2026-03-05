@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { calculateUnifiedOverallScores } from "@/lib/unifiedScoring";
 
 // Controlled Input Component to avoid hooks violations
 function ControlledInput({ value, onChange, type = "text", disabled = false, ...props }: {
@@ -712,6 +713,10 @@ export default function AdminPanel() {
                       
                       <div className="space-y-6">
                         {ALL_CLUSTERS.map((cluster) => {
+                          // Calculate unified scores using the same function as Overall Standings
+                          const unifiedScores = calculateUnifiedOverallScores(games.all, clusterTeams, clusterTeamMatches);
+                          const clusterTotalScore = unifiedScores.find(score => score.cluster === cluster)?.totalScore || 0;
+                          
                           // Get detailed game information (include archived games)
                           const gameDetails = games.all
                             .filter(game => game.scores[cluster] > 0)
@@ -766,9 +771,8 @@ export default function AdminPanel() {
                               };
                             });
 
-                          const totalPoints = gameDetails.reduce((sum, g) => sum + g.points, 0) +
-                                           grandFinalsDetails.reduce((sum, gf) => sum + gf.points, 0) +
-                                           teamMatchDetails.reduce((sum, tm) => sum + tm.points, 0);
+                          // Use unified total instead of calculating separately
+                          const totalPoints = clusterTotalScore;
 
                           const config = {
                             Salamanca: { color: 'text-green-400', borderColor: 'border-green-400', bgColor: 'bg-green-400/20' },
@@ -993,7 +997,7 @@ export default function AdminPanel() {
                           <label className="text-sm text-muted-foreground">Application Version</label>
                           <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
                         </div>
-                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.1.4</div>
+                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.1.5</div>
                       </div>
                     </div>
 
