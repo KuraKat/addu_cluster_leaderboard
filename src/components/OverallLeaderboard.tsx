@@ -5,6 +5,7 @@ import { getGameRanking } from "@/lib/scoring";
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 import { calculateUnifiedOverallScores, sortScores } from "@/lib/unifiedScoring";
 import { useFirestoreData } from "@/hooks/useFirestoreData";
+import { useState, useEffect, useRef } from "react";
 
 const MEDAL_STYLES = [
   { label: "1ST", colorClass: "text-gold", borderClass: "border-gold/60", glowClass: "glow-gold", size: "text-5xl" },
@@ -21,8 +22,39 @@ export default function OverallLeaderboard() {
   const { slideData, getClusterLogoPath, adminData } = useLeaderboardData();
   
   // Use all games (including archived) for scoring to match AdminPanel tallied points
-  const overall = sortScores(calculateUnifiedOverallScores(adminData.games.all, adminData.clusterTeams, adminData.clusterTeamMatches.all), (i) => i.totalScore);
+  const overall = sortScores(calculateUnifiedOverallScores(adminData.games.all, adminData.clusterTeams, adminData.clusterTeamMatches.all, adminData.teamGames.all), (i) => i.totalScore);
   const top3 = overall.slice(0, 3);
+
+  // Track previous scores for animations
+  const [previousScores, setPreviousScores] = useState<Record<string, number>>({});
+  const [animatingScores, setAnimatingScores] = useState<Set<string>>(new Set());
+  const previousScoresRef = useRef(previousScores);
+
+  useEffect(() => {
+    const currentScores: Record<string, number> = {};
+    overall.forEach(entry => {
+      currentScores[entry.cluster] = entry.totalScore;
+    });
+
+    // Check for score changes
+    const changedClusters = new Set<string>();
+    Object.keys(currentScores).forEach(cluster => {
+      if (previousScoresRef.current[cluster] !== currentScores[cluster]) {
+        changedClusters.add(cluster);
+      }
+    });
+
+    // Trigger animations for changed scores
+    if (changedClusters.size > 0) {
+      setAnimatingScores(changedClusters);
+      setTimeout(() => {
+        setAnimatingScores(new Set());
+      }, 1000); // Animation duration
+    }
+
+    setPreviousScores(currentScores);
+    previousScoresRef.current = currentScores;
+  }, [overall]);
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-8 pb-16 pt-8">
@@ -63,6 +95,7 @@ export default function OverallLeaderboard() {
           const style = MEDAL_STYLES[rankIdx];
           const podiumH = PODIUM_HEIGHTS[rankIdx];
           const config = CLUSTER_CONFIG[entry.cluster];
+          const isAnimating = animatingScores.has(entry.cluster);
 
           return (
             <motion.div
@@ -99,9 +132,16 @@ export default function OverallLeaderboard() {
                 <span className={`font-display text-lg md:text-2xl font-bold ${style.colorClass} text-center`}>
                   {entry.cluster}
                 </span>
-                <span className="font-display text-3xl md:text-4xl font-black text-foreground mt-2">
+                <motion.span 
+                  className="font-display text-3xl md:text-4xl font-black text-foreground mt-2"
+                  animate={isAnimating ? {
+                    scale: [1, 1.2, 1],
+                    color: ["#fff", "#fbbf24", "#fff"]
+                  } : {}}
+                  transition={{ duration: 0.6, ease: "easeInOut" }}
+                >
                   {entry.totalScore}
-                </span>
+                </motion.span>
                 <span className="text-sm text-muted-foreground mt-1">points</span>
               </div>
             </motion.div>

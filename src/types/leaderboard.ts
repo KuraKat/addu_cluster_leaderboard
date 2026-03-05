@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore";
+
 export type ClusterName =
   | "Salamanca"
   | "Manresa"
@@ -135,4 +137,15 @@ export interface VignetteSettings {
   enabled: boolean;
   radius: number; // 0-200, where 0 is smallest (strongest) and 200 is largest (weakest)
   strength: number; // 0-200, where 0 is no vignette and 200 is maximum strength
+}
+
+export interface TeamGame {
+  id: string;
+  name: string;
+  teams: ClusterName[]; // Array of cluster names participating in this team game
+  scores: Record<string, number>; // Cluster name -> score mapping
+  retired: boolean;
+  top3: boolean;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }

@@ -4,6 +4,7 @@ import { useFirestoreData } from "@/hooks/useFirestoreData";
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 import OverallLeaderboard from "@/components/OverallLeaderboard";
 import GameLeaderboard from "@/components/GameLeaderboard";
+import TeamGamesSlide from "@/components/TeamGamesSlide";
 import GrandFinalsSlide from "@/components/GrandFinalsSlide";
 import ChampionsSlide from "@/components/ChampionsSlide";
 import ClusterTeamMatchSlide from "@/components/ClusterTeamMatchSlide";
@@ -14,11 +15,11 @@ export default function PresentationCarousel() {
   const { user } = useAuth();
   const { slideData } = useLeaderboardData();
 
-  const { games, grandFinals, clusterTeamMatches, clusterTeams } = slideData;
+  const { games, teamGames, grandFinals, clusterTeamMatches, clusterTeams } = slideData;
   const hasChampions = games.length > 0;
 
-  // Slide order: Overall > Grand Finals > Team Matches > Games > Champions
-  const totalSlides = 1 + grandFinals.length + clusterTeamMatches.length + games.length + (hasChampions ? 1 : 0);
+  // Slide order: Overall > Grand Finals > Team Matches > Games > Team Games > Champions
+  const totalSlides = 1 + grandFinals.length + clusterTeamMatches.length + games.length + teamGames.length + (hasChampions ? 1 : 0);
 
   const [currentSlide, setCurrentSlide] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -67,6 +68,10 @@ export default function PresentationCarousel() {
       // Game slides
       if (idx < games.length) return advancedSlideTiming.games;
       idx -= games.length;
+
+      // Team Game slides (use same timing as games)
+      if (idx < teamGames.length) return advancedSlideTiming.games;
+      idx -= teamGames.length;
       
       // Champions slide (last position)
       // After subtracting all previous sections, idx should be 0 for champions
@@ -76,12 +81,12 @@ export default function PresentationCarousel() {
     }
     
     return slideDuration; // Use basic slide duration when advanced is disabled
-  }, [advancedSlideTiming, slideDuration, grandFinals.length, clusterTeamMatches.length, games.length, hasChampions]);
+  }, [advancedSlideTiming, slideDuration, grandFinals.length, clusterTeamMatches.length, games.length, teamGames.length, hasChampions]);
   
   // Calculate champions slide index dynamically
   const getChampionsSlideIndex = useCallback(() => {
-    return 1 + grandFinals.length + clusterTeamMatches.length + games.length;
-  }, [grandFinals.length, clusterTeamMatches.length, games.length, hasChampions]);
+    return 1 + grandFinals.length + clusterTeamMatches.length + games.length + teamGames.length;
+  }, [grandFinals.length, clusterTeamMatches.length, games.length, teamGames.length, hasChampions]);
 
   const SLIDE_DURATION_MS = getSlideDuration(currentSlide) * 1000;
 
@@ -176,6 +181,10 @@ export default function PresentationCarousel() {
     // Game slides
     if (idx < games.length) return <GameLeaderboard game={games[idx]} />;
     idx -= games.length;
+
+    // Team Game slides
+    if (idx < teamGames.length) return <TeamGamesSlide teamGame={teamGames[idx]} />;
+    idx -= teamGames.length;
 
     // Champions slide (last)
     if (hasChampions && idx === 0) return <ChampionsSlide />;

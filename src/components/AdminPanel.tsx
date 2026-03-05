@@ -83,9 +83,11 @@ export default function AdminPanel() {
     slideDuration, updateSlideDuration, advancedSlideTiming, updateAdvancedSlideTiming,
     addClusterTeam, updateClusterTeam, removeClusterTeam,
     addClusterTeamMatch, updateClusterTeamMatch, deleteClusterTeamMatch, setMatchWinner, undoMatchWinner, archiveClusterTeamMatch, unarchiveClusterTeamMatch,
+    addTeamGame, updateTeamGameScore, removeTeamGame, retireTeamGame, unretireTeamGame, updateTeamGameVisibility,
   } = useFirestoreData();
   
   const { games, grandFinals, clusterTeamMatches, clusterTeams, champions, adminLogs } = adminData;
+  const { teamGames } = adminData;
 
   const [open, setOpen] = useState(false);
   const [newGameName, setNewGameName] = useState("");
@@ -95,6 +97,8 @@ export default function AdminPanel() {
   const [tab, setTab] = useState<"games" | "finals" | "teams" | "teamMatches" | "talliedPoints" | "logs" | "misc">("games");
   const [incrementMode, setIncrementMode] = useState(false);
   const [incrementAmount, setIncrementAmount] = useState(1);
+  const [clusterTeamsMode, setClusterTeamsMode] = useState(false);
+  const [selectedTeamsForGame, setSelectedTeamsForGame] = useState<string[]>([]);
 
   // Cluster Team System state
   const [newTeamName, setNewTeamName] = useState("");
@@ -127,8 +131,50 @@ export default function AdminPanel() {
     }
   };
 
+  const handleAddTeamGame = () => {
+    if (newGameName.trim() && selectedTeamsForGame.length > 0) {
+      // Get actual team data from clusterTeams
+      const teamsToAdd = selectedTeamsForGame.map(teamId => {
+        const team = clusterTeams.find(t => t.id === teamId);
+        return team ? team.name : teamId;
+      });
+      
+      // Use the existing addTeamGame function from useFirestoreData
+      addTeamGame(newGameName.trim(), teamsToAdd as ClusterName[]);
+      setNewGameName("");
+      setSelectedTeamsForGame([]);
+      // Don't reset clusterTeamsMode - let user control it manually
+    }
+  };
+
   const handleAddGame = () => {
     if (newGameName.trim()) { addGame(newGameName.trim()); setNewGameName(""); }
+  };
+
+  const handleTeamGameIncrement = (teamGameId: string, team: string) => {
+    const teamGame = teamGames.all.find(tg => tg.id === teamGameId);
+    if (teamGame) {
+      updateTeamGameScore(teamGameId, team, (teamGame.scores[team] || 0) + incrementAmount);
+    }
+  };
+
+  const handleTeamGameDecrement = (teamGameId: string, team: string) => {
+    const teamGame = teamGames.all.find(tg => tg.id === teamGameId);
+    if (teamGame) {
+      updateTeamGameScore(teamGameId, team, Math.max(0, (teamGame.scores[team] || 0) - incrementAmount));
+    }
+  };
+
+  const handleTeamGameTop3Toggle = (teamGameId: string, checked: boolean) => {
+    updateTeamGameVisibility(teamGameId, checked);
+  };
+
+  const handleTeamToggle = (teamId: string) => {
+    setSelectedTeamsForGame(prev => 
+      prev.includes(teamId) 
+        ? prev.filter(id => id !== teamId)
+        : [...prev, teamId]
+    );
   };
 
   const handleIncrement = (gameId: string, cluster: ClusterName) => {
@@ -262,13 +308,72 @@ export default function AdminPanel() {
                 {/* Games Tab */}
                 {tab === "games" && (
                   <>
-                    <div className="flex gap-2 mb-6">
-                      <Input value={newGameName} onChange={(e) => setNewGameName(e.target.value)} placeholder="New game name..." className="bg-muted border-border" onKeyDown={(e) => e.key === "Enter" && handleAddGame()} />
-                      <Button onClick={handleAddGame} size="sm" className="bg-primary text-primary-foreground"><Plus className="w-4 h-4" /></Button>
+                    {/* Game Creation Card */}
+                    <div className="glass-surface rounded-lg p-6 mb-6">
+                      <div className="space-y-4">
+                        {/* Game Name Input */}
+                        <div className="flex gap-2">
+                          <Input 
+                            value={newGameName} 
+                            onChange={(e) => setNewGameName(e.target.value)} 
+                            placeholder="New game name..." 
+                            className="bg-muted/50 border-border flex-1" 
+                            onKeyDown={(e) => e.key === "Enter" && (clusterTeamsMode ? handleAddTeamGame() : handleAddGame())} 
+                          />
+                          <Button 
+                            onClick={clusterTeamsMode ? handleAddTeamGame : handleAddGame} 
+                            size="sm" 
+                            className="bg-primary text-primary-foreground"
+                            disabled={!newGameName.trim() || (clusterTeamsMode && selectedTeamsForGame.length === 0)}
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
+
+                        {/* Cluster Teams Toggle */}
+                        <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                          <div>
+                            <span className="text-sm font-medium text-foreground">Cluster Teams</span>
+                            <p className="text-xs text-muted-foreground">Create team games by selecting teams from database</p>
+                          </div>
+                          <Switch checked={clusterTeamsMode} onCheckedChange={setClusterTeamsMode} />
+                        </div>
+
+                        {/* Team Selection - Only show when Cluster Teams is enabled */}
+                        {clusterTeamsMode && (
+                          <div className="p-4 bg-muted/30 rounded-lg">
+                            <div className="text-sm font-medium text-foreground mb-3">Select Teams for Game:</div>
+                            <div className="grid grid-cols-2 gap-2 mb-4">
+                              {clusterTeams.map((team) => (
+                                <button
+                                  key={team.id}
+                                  onClick={() => handleTeamToggle(team.id)}
+                                  className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                                    selectedTeamsForGame.includes(team.id)
+                                      ? 'bg-primary text-primary-foreground'
+                                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                                  }`}
+                                >
+                                  {team.name}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedTeamsForGame.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Selected: {selectedTeamsForGame.map(id => {
+                                  const team = clusterTeams.find(t => t.id === id);
+                                  return team ? team.name : id;
+                                }).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Active Games */}
+                    {/* All Games - Regular and Team Games */}
                     <div className="space-y-6">
+                      {/* Regular Games */}
                       {activeGames.map((game) => (
                         <div key={game.id} className="glass-surface rounded-lg p-4">
                           <div className="flex items-center justify-between mb-4">
@@ -324,6 +429,72 @@ export default function AdminPanel() {
                           </div>
                         </div>
                       ))}
+
+                      {/* Team Games */}
+                      {teamGames.active.map((teamGame) => (
+                        <div key={teamGame.id} className="glass-surface rounded-lg p-4 border-2 border-blue-500/30">
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="font-body text-lg font-semibold text-foreground flex items-center gap-2">
+                              {teamGame.name}
+                              <span className="px-2 py-1 bg-blue-500/20 text-blue-500 text-xs font-medium rounded">Team Game</span>
+                            </h3>
+                            <div className="flex gap-2">
+                              <button onClick={() => retireTeamGame(teamGame.id)} className="text-muted-foreground hover:text-yellow-500 transition-colors" title="Retire event">
+                                <Archive className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => removeTeamGame(teamGame.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-base text-muted-foreground">Show top 3 only</span>
+                            <Switch checked={teamGame.top3} onCheckedChange={(checked) => handleTeamGameTop3Toggle(teamGame.id, checked)} />
+                          </div>
+                          <div className="mb-3">
+                            <div className="text-sm text-muted-foreground mb-2">Teams:</div>
+                            <div className="flex flex-wrap gap-2">
+                              {teamGame.teams.map((team) => (
+                                <div key={team} className="px-2 py-1 rounded text-xs font-medium bg-blue-500/20 text-blue-500">
+                                  {team}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="grid gap-4 grid-cols-2">
+                            {teamGame.teams.map((team) => (
+                              <div key={team} className="space-y-3">
+                                <label className="text-base text-muted-foreground block text-center">{team}</label>
+                                <ControlledInput 
+                                  type="number" 
+                                  min={0} 
+                                  value={teamGame.scores[team] || 0}
+                                  onChange={(newValue: number) => updateTeamGameScore(teamGame.id, team, newValue)}
+                                  className="bg-muted border-border h-10 text-base w-full" 
+                                />
+                                {incrementMode && (
+                                  <div className="flex gap-2">
+                                    <button 
+                                      onClick={() => handleTeamGameDecrement(teamGame.id, team)} 
+                                      className="flex-1 h-8 rounded bg-red-500/20 hover:bg-red-500/30 text-red-500 flex items-center justify-center text-base font-bold transition-colors"
+                                      title={`Decrease by ${incrementAmount}`}
+                                    >
+                                      -
+                                    </button>
+                                    <button 
+                                      onClick={() => handleTeamGameIncrement(teamGame.id, team)} 
+                                      className="flex-1 h-8 rounded bg-green-500/20 hover:bg-green-500/30 text-green-500 flex items-center justify-center text-base font-bold transition-colors"
+                                      title={`Increase by ${incrementAmount}`}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Retired Games */}
@@ -339,6 +510,31 @@ export default function AdminPanel() {
                                   <Archive className="w-4 h-4" />
                                 </button>
                                 <button onClick={() => removeGame(game.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete permanently">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Retired Team Games */}
+                    {teamGames.retired.length > 0 && (
+                      <>
+                        <h3 className="font-display text-sm font-bold text-muted-foreground mt-8 mb-4 tracking-wider">RETIRED TEAM EVENTS</h3>
+                        <div className="space-y-3">
+                          {teamGames.retired.map((teamGame) => (
+                            <div key={teamGame.id} className="glass-surface rounded-lg px-4 py-3 flex items-center justify-between opacity-70 border border-blue-500/30">
+                              <span className="font-body text-sm text-foreground flex items-center gap-2">
+                                {teamGame.name}
+                                <span className="px-2 py-1 bg-blue-500/20 text-blue-500 text-xs font-medium rounded">Team Game</span>
+                              </span>
+                              <div className="flex gap-2">
+                                <button onClick={() => unretireTeamGame(teamGame.id)} className="text-muted-foreground hover:text-green-500 transition-colors" title="Reactivate">
+                                  <Archive className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => removeTeamGame(teamGame.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete permanently">
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
@@ -760,7 +956,7 @@ export default function AdminPanel() {
                       <div className="space-y-6">
                         {ALL_CLUSTERS.map((cluster) => {
                           // Calculate unified scores using the same function as Overall Standings
-                          const unifiedScores = calculateUnifiedOverallScores(games.all, clusterTeams, clusterTeamMatches.all);
+                          const unifiedScores = calculateUnifiedOverallScores(games.all, clusterTeams, clusterTeamMatches.all, teamGames.all);
                           const clusterTotalScore = unifiedScores.find(score => score.cluster === cluster)?.totalScore || 0;
                           
                           // Get detailed game information (include archived games)
@@ -770,6 +966,35 @@ export default function AdminPanel() {
                               name: game.name,
                               points: game.scores[cluster]
                             }));
+
+                          // Get detailed team game information (include archived team games)
+                          const teamGameDetails = teamGames.all
+                            .filter(teamGame => {
+                              // Check if any team in this team game contains the current cluster
+                              return teamGame.teams.some(teamName => {
+                                const clusterTeam = clusterTeams.find(ct => ct.name === teamName);
+                                return clusterTeam?.clusters.includes(cluster);
+                              });
+                            })
+                            .map(teamGame => {
+                              // Find which teams contain this cluster and sum their points
+                              let totalPoints = 0;
+                              const participatingTeams = [];
+                              
+                              teamGame.teams.forEach(teamName => {
+                                const clusterTeam = clusterTeams.find(ct => ct.name === teamName);
+                                if (clusterTeam?.clusters.includes(cluster)) {
+                                  totalPoints += teamGame.scores[teamName] || 0;
+                                  participatingTeams.push(teamName);
+                                }
+                              });
+                              
+                              return {
+                                name: `${teamGame.name} ${participatingTeams.join(' & ')}`,
+                                points: totalPoints
+                              };
+                            })
+                            .filter(detail => detail.points > 0);
 
                           // Get detailed grand finals information (include archived finals)
                           const grandFinalsDetails = grandFinals.all
@@ -862,6 +1087,29 @@ export default function AdminPanel() {
                                 </div>
                               )}
 
+                              {/* Team Games Section */}
+                              {(teamGameDetails.length > 0 || teamMatchDetails.length > 0) && (
+                                <div className="space-y-2">
+                                  <h5 className="font-semibold text-sm text-cyan-400 mb-2">
+                                    Team Games ({teamGameDetails.length + teamMatchDetails.length})
+                                  </h5>
+                                  {/* Team Games */}
+                                  {teamGameDetails.map((teamGame, idx) => (
+                                    <div key={`team-game-${idx}`} className="flex justify-between items-center py-1 px-2 bg-cyan-400/10 rounded">
+                                      <span className="text-sm text-foreground">{teamGame.name}</span>
+                                      <span className="font-medium text-cyan-400">+{teamGame.points}</span>
+                                    </div>
+                                  ))}
+                                  {/* Team Matches */}
+                                  {teamMatchDetails.map((team, idx) => (
+                                    <div key={`team-match-${idx}`} className="flex justify-between items-center py-1 px-2 bg-purple-400/10 rounded">
+                                      <span className="text-sm text-foreground">{team.name}</span>
+                                      <span className="font-medium text-purple-400">+{team.points}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
                               {/* Grand Finals Section */}
                               {grandFinalsDetails.length > 0 && (
                                 <div className="space-y-2">
@@ -875,21 +1123,8 @@ export default function AdminPanel() {
                                 </div>
                               )}
 
-                              {/* Team Matches Section */}
-                              {teamMatchDetails.length > 0 && (
-                                <div className="space-y-2">
-                                  <h5 className="font-semibold text-sm text-purple-400 mb-2">Team Matches ({teamMatchDetails.length})</h5>
-                                  {teamMatchDetails.map((team, idx) => (
-                                    <div key={idx} className="flex justify-between items-center py-1 px-2 bg-purple-400/10 rounded">
-                                      <span className="text-sm text-foreground">{team.name}</span>
-                                      <span className="font-medium text-purple-400">+{team.points}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
                               {/* Empty State */}
-                              {gameDetails.length === 0 && grandFinalsDetails.length === 0 && teamMatchDetails.length === 0 && (
+                              {gameDetails.length === 0 && teamGameDetails.length === 0 && grandFinalsDetails.length === 0 && teamMatchDetails.length === 0 && (
                                 <div className="text-center py-4 text-muted-foreground text-sm">
                                   No points recorded for this cluster yet
                                 </div>
@@ -1038,13 +1273,13 @@ export default function AdminPanel() {
                   <div className="space-y-6">
                     {/* Version Information - Always at top */}
                     <div className="glass-surface rounded-lg p-4 space-y-3">
-                      <h3 className="font-body text-sm font-semibold text-foreground">Version 1.2.1</h3>
+                      <h3 className="font-body text-sm font-semibold text-foreground">Version 1.3.1</h3>
                       <div className="flex items-center justify-between">
                         <div>
                           <label className="text-sm text-muted-foreground">Application Version</label>
                           <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
                         </div>
-                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.2.1</div>
+                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.3.1</div>
                       </div>
                     </div>
 

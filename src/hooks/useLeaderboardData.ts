@@ -5,6 +5,7 @@ import { ALL_CLUSTERS, ClusterName } from '@/types/leaderboard';
 export function useLeaderboardData() {
   const {
     games,
+    teamGames,
     grandFinals,
     champions,
     clusterTeams,
@@ -29,13 +30,17 @@ export function useLeaderboardData() {
       f.isActive && !f.archived
     );
 
-    // Active Cluster Team Matches (non-archived, active)
-    const activeClusterTeamMatches = clusterTeamMatches.filter((m) => 
-      m.isActive && !m.archived
+    // Active Team Games (non-retired) with at least one non-zero score
+    const activeTeamGames = teamGames.filter((tg) => 
+      !tg.retired && 
+      Object.values(tg.scores).some((s) => s > 0)
     );
 
-    // Active Cluster Teams
-    const activeClusterTeams = clusterTeams.filter((t) => t.isActive);
+    // Active cluster teams
+    const activeClusterTeams = clusterTeams;
+
+    // Active cluster team matches (non-archived)
+    const activeClusterTeamMatches = clusterTeamMatches.filter((m) => !m.archived);
 
     // Champions from active games
     const activeChampions = champions.filter((c) => {
@@ -45,6 +50,7 @@ export function useLeaderboardData() {
 
     return {
       games: activeGames,
+      teamGames: activeTeamGames,
       grandFinals: activeGrandFinals,
       champions: activeChampions,
       clusterTeams: activeClusterTeams,
@@ -53,7 +59,7 @@ export function useLeaderboardData() {
       loading,
       error
     };
-  }, [games, grandFinals, champions, clusterTeams, clusterTeamMatches, slideDuration, loading, error]);
+  }, [games, teamGames, grandFinals, champions, clusterTeams, clusterTeamMatches, slideDuration, loading, error]);
 
   // Admin data (includes all items for management)
   const adminData = useMemo(() => {
@@ -63,12 +69,19 @@ export function useLeaderboardData() {
     const archivedFinals = grandFinals.filter((f) => f.archived);
     const activeTeamMatches = clusterTeamMatches.filter((m) => !m.archived);
     const archivedTeamMatches = clusterTeamMatches.filter((m) => m.archived);
+    const activeTeamGames = teamGames.filter((tg) => !tg.retired);
+    const retiredTeamGames = teamGames.filter((tg) => tg.retired);
 
     return {
       games: {
         active: activeGames,
         retired: retiredGames,
         all: games
+      },
+      teamGames: {
+        active: activeTeamGames,
+        retired: retiredTeamGames,
+        all: teamGames
       },
       grandFinals: {
         active: activeFinals,
@@ -87,7 +100,7 @@ export function useLeaderboardData() {
       loading,
       error
     };
-  }, [games, grandFinals, champions, clusterTeams, clusterTeamMatches, slideDuration, loading, error]);
+  }, [games, teamGames, grandFinals, champions, clusterTeams, clusterTeamMatches, slideDuration, loading, error]);
 
   // Helper function to get cluster logo path (standardized across components)
   const getClusterLogoPath = (clusterName: string): string => {

@@ -1,14 +1,15 @@
 import { Game, OverallScore, ClusterName, ALL_CLUSTERS } from "@/types/leaderboard";
-import { ClusterTeam, ClusterTeamMatch } from "@/types/leaderboard";
+import { ClusterTeam, ClusterTeamMatch, TeamGame } from "@/types/leaderboard";
 
 /**
- * Calculate unified overall scores including games and team matches
+ * Calculate unified overall scores including games, team games, and team matches
  * This ensures both Overall Standings slide and Tallied Points use the same scoring logic
  */
 export function calculateUnifiedOverallScores(
   games: Game[], 
   clusterTeams: ClusterTeam[], 
-  clusterTeamMatches: ClusterTeamMatch[]
+  clusterTeamMatches: ClusterTeamMatch[],
+  teamGames: TeamGame[] = []
 ): OverallScore[] {
   const totals: Record<ClusterName, number> = {} as Record<ClusterName, number>;
   ALL_CLUSTERS.forEach((c) => (totals[c] = 0));
@@ -17,6 +18,21 @@ export function calculateUnifiedOverallScores(
   games.forEach((game) => {
     ALL_CLUSTERS.forEach((c) => {
       totals[c] += game.scores[c] ?? 0;
+    });
+  });
+
+  // Add points from team games
+  teamGames.forEach((teamGame) => {
+    teamGame.teams.forEach((teamName) => {
+      // Find the cluster team that matches this team name
+      const clusterTeam = clusterTeams.find(ct => ct.name === teamName);
+      if (clusterTeam) {
+        // Add team score to all clusters in this team
+        const teamScore = teamGame.scores[teamName] ?? 0;
+        clusterTeam.clusters.forEach((cluster) => {
+          totals[cluster] += teamScore;
+        });
+      }
     });
   });
 

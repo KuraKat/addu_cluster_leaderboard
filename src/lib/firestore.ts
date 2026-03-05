@@ -13,10 +13,11 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
-  writeBatch
+  writeBatch,
+  addDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Game, ClusterName, PointLog, GrandFinalsMatch, Champion, ClusterTeam, ClusterTeamMatch, PendingChange, AdminLog, AdvancedSlideTiming, VignetteSettings } from '@/types/leaderboard';
+import { Game, ClusterName, PointLog, GrandFinalsMatch, Champion, ClusterTeam, ClusterTeamMatch, PendingChange, AdminLog, AdvancedSlideTiming, VignetteSettings, TeamGame } from '@/types/leaderboard';
 
 // Collection references
 const GAMES_COLLECTION = 'games';
@@ -720,6 +721,52 @@ export const championsService = {
 };
 
 // Settings operations
+export const TEAM_GAMES_COLLECTION = 'teamGames';
+
+export const teamGamesService = {
+  async getAll(): Promise<TeamGame[]> {
+    const q = query(collection(db, TEAM_GAMES_COLLECTION), orderBy('updatedAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as TeamGame[];
+  },
+
+  subscribe(callback: (teamGames: TeamGame[]) => void) {
+    const q = query(collection(db, TEAM_GAMES_COLLECTION), orderBy('updatedAt', 'desc'));
+    return onSnapshot(q, (querySnapshot) => {
+      const teamGames = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as TeamGame[];
+      callback(teamGames);
+    });
+  },
+
+  async add(teamGame: Omit<TeamGame, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const docRef = await addDoc(collection(db, TEAM_GAMES_COLLECTION), {
+      ...teamGame,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return docRef.id;
+  },
+
+  async update(id: string, updates: Partial<TeamGame>): Promise<void> {
+    const docRef = doc(db, TEAM_GAMES_COLLECTION, id);
+    await updateDoc(docRef, {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+  },
+
+  async delete(id: string): Promise<void> {
+    const docRef = doc(db, TEAM_GAMES_COLLECTION, id);
+    await deleteDoc(docRef);
+  }
+};
+
 export const settingsService = {
   async getSlideDuration(): Promise<number> {
     const docRef = doc(db, SETTINGS_COLLECTION, 'slideDuration');

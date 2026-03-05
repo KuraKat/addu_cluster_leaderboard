@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   gamesService, 
+  teamGamesService,
   clusterTeamsService, 
   clusterTeamMatchesService, 
   adminLogsService, 
@@ -17,12 +18,14 @@ import {
   Champion, 
   ClusterName, 
   AdvancedSlideTiming,
-  VignetteSettings 
+  VignetteSettings,
+  TeamGame
 } from '@/types/leaderboard';
 import { useAuth } from './useAuth';
 
 interface FirestoreDataStore {
   games: Game[];
+  teamGames: TeamGame[];
   grandFinals: GrandFinalsMatch[];
   champions: Champion[];
   clusterTeams: ClusterTeam[];
@@ -42,6 +45,14 @@ interface FirestoreDataStore {
   unretireGame: (gameId: string) => Promise<void>;
   updateGameVisibility: (gameId: string, showTopOnly: boolean) => Promise<void>;
   updateGameTop3: (gameId: string, showTop3: boolean) => Promise<void>;
+
+  // Team game operations
+  addTeamGame: (name: string, teams: ClusterName[]) => Promise<void>;
+  updateTeamGameScore: (teamGameId: string, cluster: string, score: number) => Promise<void>;
+  removeTeamGame: (teamGameId: string) => Promise<void>;
+  retireTeamGame: (teamGameId: string) => Promise<void>;
+  unretireTeamGame: (teamGameId: string) => Promise<void>;
+  updateTeamGameVisibility: (teamGameId: string, top3: boolean) => Promise<void>;
   
   // Grand Finals operations
   addGrandFinals: (title: string, clusterA: ClusterName, clusterB: ClusterName) => Promise<void>;
@@ -74,6 +85,7 @@ interface FirestoreDataStore {
 export function useFirestoreData(): FirestoreDataStore {
   const { user } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
+  const [teamGames, setTeamGames] = useState<TeamGame[]>([]);
   const [grandFinals, setGrandFinals] = useState<GrandFinalsMatch[]>([]);
   const [champions, setChampions] = useState<Champion[]>([]);
   const [clusterTeams, setClusterTeams] = useState<ClusterTeam[]>([]);
@@ -116,6 +128,12 @@ export function useFirestoreData(): FirestoreDataStore {
       unsubscribers.push(
         gamesService.subscribe((data) => {
           setGames(data);
+        })
+      );
+
+      unsubscribers.push(
+        teamGamesService.subscribe((data) => {
+          setTeamGames(data);
         })
       );
 
@@ -445,8 +463,89 @@ export function useFirestoreData(): FirestoreDataStore {
     }
   }, [getAdminInfo, setVignetteSettings]);
 
+  // Team game operations
+  const addTeamGame = useCallback(async (name: string, teams: ClusterName[]) => {
+    try {
+      const adminInfo = getAdminInfo();
+      const scores: Record<string, number> = {};
+      teams.forEach(team => {
+        scores[team] = 0;
+      });
+      
+      await teamGamesService.add({
+        name,
+        teams,
+        scores,
+        retired: false,
+        top3: false
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add team game');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
+  const updateTeamGameScore = useCallback(async (teamGameId: string, cluster: string, score: number) => {
+    try {
+      const adminInfo = getAdminInfo();
+      const teamGame = teamGames.find(tg => tg.id === teamGameId);
+      if (!teamGame) throw new Error('Team game not found');
+      
+      await teamGamesService.update(teamGameId, {
+        scores: {
+          ...teamGame.scores,
+          [cluster]: score
+        }
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update team game score');
+      throw err;
+    }
+  }, [teamGames, getAdminInfo]);
+
+  const removeTeamGame = useCallback(async (teamGameId: string) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await teamGamesService.delete(teamGameId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove team game');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
+  const retireTeamGame = useCallback(async (teamGameId: string) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await teamGamesService.update(teamGameId, { retired: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to retire team game');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
+  const unretireTeamGame = useCallback(async (teamGameId: string) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await teamGamesService.update(teamGameId, { retired: false });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to unretire team game');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
+  const updateTeamGameVisibility = useCallback(async (teamGameId: string, top3: boolean) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await teamGamesService.update(teamGameId, { top3 });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update team game visibility');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
   return {
     games,
+    teamGames,
     grandFinals,
     champions,
     clusterTeams,
@@ -465,7 +564,12 @@ export function useFirestoreData(): FirestoreDataStore {
     unretireGame,
     updateGameVisibility,
     updateGameTop3,
-    
+    addTeamGame,
+    updateTeamGameScore,
+    removeTeamGame,
+    retireTeamGame,
+    unretireTeamGame,
+    updateTeamGameVisibility,
     addGrandFinals,
     removeGrandFinals,
     updateGrandFinals,
