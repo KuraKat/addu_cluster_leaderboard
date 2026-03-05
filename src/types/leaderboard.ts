@@ -36,6 +36,8 @@ export interface Game {
   name: string;
   scores: Record<ClusterName, number>;
   retired?: boolean; // retired games still count in overall but don't show individual slides
+  showTopOnly?: boolean; // if true, only show top 5 clusters, otherwise show all
+  showTop3?: boolean; // if true, only show top 3 clusters, otherwise show all
 }
 
 export interface OverallScore {
@@ -60,6 +62,7 @@ export interface GrandFinalsMatch {
   clusterB: ClusterName;
   betsA: number;
   betsB: number;
+  votingEnabled?: boolean; // if true, voting buttons are shown, default false
 }
 
 export interface Champion {

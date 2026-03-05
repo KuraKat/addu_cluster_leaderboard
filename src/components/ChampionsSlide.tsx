@@ -45,7 +45,7 @@ export default function ChampionsSlide() {
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                   <div>
-                    <span className="font-display text-sm text-muted-foreground tracking-wider">
+                    <span className="font-display text-sm text-white tracking-wider">
                       {champ.gameName}
                     </span>
                     <p className={`font-display text-lg font-bold ${config.color}`}>

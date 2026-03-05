@@ -53,6 +53,8 @@ interface ScoreStore {
   removeGame: (gameId: string) => void;
   retireGame: (gameId: string) => void;
   unretireGame: (gameId: string) => void;
+  updateGameVisibility: (gameId: string, showTopOnly: boolean) => void;
+  updateGameTop3: (gameId: string, showTop3: boolean) => void;
   addGrandFinals: (title: string, clusterA: ClusterName, clusterB: ClusterName) => void;
   removeGrandFinals: (id: string) => void;
   updateGrandFinals: (id: string, updates: Partial<GrandFinalsMatch>) => void;
@@ -149,6 +151,22 @@ export const useScoreStore = create<ScoreStore>((set, get) => ({
     set({ games });
   },
 
+  updateGameVisibility: (gameId, showTopOnly) => {
+    const games = get().games.map((g) =>
+      g.id === gameId ? { ...g, showTopOnly } : g
+    );
+    save(STORAGE_KEY, games);
+    set({ games });
+  },
+
+  updateGameTop3: (gameId, showTop3) => {
+    const games = get().games.map((g) =>
+      g.id === gameId ? { ...g, showTop3 } : g
+    );
+    save(STORAGE_KEY, games);
+    set({ games });
+  },
+
   addGrandFinals: (title, clusterA, clusterB) => {
     const finals = [...get().grandFinals, {
       id: `finals-${Date.now()}`,
@@ -158,6 +176,7 @@ export const useScoreStore = create<ScoreStore>((set, get) => ({
       clusterB,
       betsA: 0,
       betsB: 0,
+      votingEnabled: false,
     }];
     save(FINALS_KEY, finals);
     set({ grandFinals: finals });

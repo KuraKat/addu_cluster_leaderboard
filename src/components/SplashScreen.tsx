@@ -20,14 +20,24 @@ export default function SplashScreen({ onComplete }: { onComplete: () => void })
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative z-10 text-center"
       >
-        <motion.img
-          src="/assets/logos/AdDU Logo.png"
-          alt="AdDU Logo"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.3, duration: 0.6, ease: "easeOut" }}
-          className="h-20 w-auto object-contain mb-6 mx-auto"
-        />
+        <div className="flex justify-center gap-4 mb-6">
+          <motion.img
+            src="/assets/logos/SHS Logo.png"
+            alt="SHS Logo"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
+            className="h-20 w-auto object-contain"
+          />
+          <motion.img
+            src="/assets/logos/AdDU Logo.png"
+            alt="AdDU Logo"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.6, ease: "easeOut" }}
+            className="h-20 w-auto object-contain"
+          />
+        </div>
         <h1 className="font-display text-6xl md:text-8xl font-black tracking-wider text-gradient-gold mb-6">
           LEADERBOARD
         </h1>

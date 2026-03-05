@@ -26,6 +26,13 @@ export default function PresentationCarousel() {
   const startTimeRef = useRef(Date.now());
   const [isGrandFinalsPlaying, setIsGrandFinalsPlaying] = useState(false);
 
+  const prevSlide = useCallback(() => {
+    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
+    setProgress(0);
+    startTimeRef.current = Date.now();
+    setIsGrandFinalsPlaying(false);
+  }, [totalSlides]);
+
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % totalSlides);
     setProgress(0);
@@ -57,6 +64,17 @@ export default function PresentationCarousel() {
   useEffect(() => {
     if (currentSlide >= totalSlides) setCurrentSlide(0);
   }, [totalSlides, currentSlide]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') {
+        nextSlide();
+      }
+    };
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [nextSlide]);
 
   const getSlideContent = () => {
     let idx = currentSlide;

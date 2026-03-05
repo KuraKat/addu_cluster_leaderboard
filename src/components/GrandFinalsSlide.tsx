@@ -71,7 +71,7 @@ export default function GrandFinalsSlide({ match, onComplete }: Props) {
       </div>
 
       <AnimatePresence>
-        {phase === "vote" && (
+        {phase === "vote" && match.votingEnabled && (
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col items-center gap-4 mt-10">
             <div className="flex gap-6">
               <button onClick={() => addBet(match.id, "A")} className={`px-8 py-3 rounded-lg font-display font-bold text-lg border-2 ${configA.borderColor} ${configA.color} bg-card/60 hover:bg-card transition-colors`}>
