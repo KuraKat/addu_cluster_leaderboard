@@ -43,12 +43,16 @@ export default function GameLeaderboard({ game }: { game: Game }) {
                 {i + 1}
               </span>
               <div className="flex-1 relative">
-                <div className={`glass-surface rounded-lg overflow-hidden h-14 flex items-center border ${config.borderColor}/30`}>
+                <div className={`relative h-14 flex items-center border-2 rounded-lg ${config.borderColor} ${
+                  i === 0 
+                    ? `shadow-[0_0_20px_rgba(var(--tw-shadow-color),0.5)]`
+                    : ``
+                }`}>
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${(entry.score / maxScore) * 100}%` }}
                     transition={{ delay: 0.5 + i * 0.1, duration: 0.8, ease: "easeOut" }}
-                    className={`absolute inset-y-0 left-0 ${config.bgColor}/20 rounded-lg`}
+                    className={`absolute inset-y-0 left-0 rounded-lg ${config.bgColor}`}
                   />
                   <div className="relative z-10 flex items-center justify-between w-full px-5">
                     <div className="flex items-center gap-3">
@@ -60,11 +64,15 @@ export default function GameLeaderboard({ game }: { game: Game }) {
                           (e.target as HTMLImageElement).style.display = "none";
                         }}
                       />
-                      <span className={`font-body text-lg font-semibold ${config.color}`}>
+                      <span className={`font-body text-lg font-semibold ${
+                        i === 0 ? "text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]" : "text-white drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
+                      }`}>
                         {entry.cluster}
                       </span>
                     </div>
-                    <span className={`font-display text-xl font-bold ${config.color}`}>
+                    <span className={`font-display text-xl font-bold ${
+                      i === 0 ? "text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]" : "text-white drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
+                    }`}>
                       {entry.score}
                     </span>
                   </div>
