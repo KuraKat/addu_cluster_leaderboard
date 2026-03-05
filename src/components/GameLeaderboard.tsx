@@ -57,9 +57,9 @@ export default function GameLeaderboard({ game }: { game: Game }) {
                   <div className="relative z-10 flex items-center justify-between w-full px-5">
                     <div className="flex items-center gap-3">
                       <img
-                        src={config.logo}
+                        src={`/assets/cluster_logos/${entry.cluster.toLowerCase()}.jpg`}
                         alt={entry.cluster}
-                        className="w-8 h-8 object-contain"
+                        className="w-8 h-8 rounded-full object-cover"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = "none";
                         }}

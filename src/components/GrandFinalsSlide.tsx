@@ -42,8 +42,8 @@ export default function GrandFinalsSlide({ match, onComplete }: Props) {
           transition={{ delay: 0.3, duration: 0.6 }}
           className="flex flex-col items-center flex-1"
         >
-          <div className={`w-28 h-28 md:w-36 md:h-36 rounded-full border-4 ${configA.borderColor} bg-card/60 flex items-center justify-center mb-4 overflow-hidden`}>
-            <img src={configA.logo} alt={match.clusterA} className="w-20 h-20 md:w-24 md:h-24 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <div className={`w-36 h-36 md:w-48 md:h-48 rounded-full border-4 ${configA.borderColor} bg-card/60 flex items-center justify-center mb-4 overflow-hidden`}>
+            <img src={`/assets/cluster_logos/${match.clusterA.toLowerCase()}.jpg`} alt={match.clusterA} className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           </div>
           <span className={`font-display text-xl md:text-2xl font-bold ${configA.color}`}>{match.clusterA}</span>
           <span className="font-display text-3xl font-black text-foreground mt-2">{match.betsA}</span>
@@ -61,8 +61,8 @@ export default function GrandFinalsSlide({ match, onComplete }: Props) {
           transition={{ delay: 0.3, duration: 0.6 }}
           className="flex flex-col items-center flex-1"
         >
-          <div className={`w-28 h-28 md:w-36 md:h-36 rounded-full border-4 ${configB.borderColor} bg-card/60 flex items-center justify-center mb-4 overflow-hidden`}>
-            <img src={configB.logo} alt={match.clusterB} className="w-20 h-20 md:w-24 md:h-24 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          <div className={`w-36 h-36 md:w-48 md:h-48 rounded-full border-4 ${configB.borderColor} bg-card/60 flex items-center justify-center mb-4 overflow-hidden`}>
+            <img src={`/assets/cluster_logos/${match.clusterB.toLowerCase()}.jpg`} alt={match.clusterB} className="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
           </div>
           <span className={`font-display text-xl md:text-2xl font-bold ${configB.color}`}>{match.clusterB}</span>
           <span className="font-display text-3xl font-black text-foreground mt-2">{match.betsB}</span>

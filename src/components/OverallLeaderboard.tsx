@@ -26,6 +26,18 @@ export default function OverallLeaderboard() {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
+        className="flex items-center gap-4 mb-6"
+      >
+        <img 
+          src="/assets/logos/AdDU Logo.png" 
+          alt="AdDU Logo" 
+          className="h-16 w-auto object-contain"
+        />
+      </motion.div>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
         className="flex items-center gap-4 mb-10"
       >
         <Trophy className="w-10 h-10 text-gold" />
@@ -56,12 +68,12 @@ export default function OverallLeaderboard() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.5 + rankIdx * 0.2, duration: 0.5, type: "spring" }}
-                className={`w-20 h-20 md:w-24 md:h-24 rounded-full border-2 ${style.borderClass} ${style.glowClass} bg-card/80 flex items-center justify-center mb-3 overflow-hidden`}
+                className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-2 ${style.borderClass} ${style.glowClass} bg-card/80 flex items-center justify-center mb-3 overflow-hidden`}
               >
                 <img
-                  src={config.logo}
+                  src={`/assets/cluster_logos/${entry.cluster.toLowerCase()}.jpg`}
                   alt={entry.cluster}
-                  className="w-14 h-14 md:w-16 md:h-16 object-contain"
+                  className="w-28 h-28 md:w-36 md:h-36 rounded-full object-cover"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               </motion.div>
