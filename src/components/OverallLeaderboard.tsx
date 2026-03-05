@@ -29,13 +29,13 @@ export default function OverallLeaderboard() {
         className="flex items-center gap-4 mb-6"
       >
         <img 
-          src="/assets/logos/SHS Logo.png" 
-          alt="SHS Logo" 
+          src="/assets/logos/AdDU Logo.png" 
+          alt="AdDU Logo" 
           className="h-16 w-auto object-contain"
         />
         <img 
-          src="/assets/logos/AdDU Logo.png" 
-          alt="AdDU Logo" 
+          src="/assets/logos/SHS Logo.png" 
+          alt="SHS Logo" 
           className="h-16 w-auto object-contain"
         />
       </motion.div>
