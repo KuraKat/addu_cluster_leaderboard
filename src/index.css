@@ -110,4 +110,12 @@
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
+  .shs-building-bg {
+    background-image: url('/assets/backgrounds/SHS_Building.jpg');
+    background-size: 40%;
+    background-position: bottom right;
+    background-repeat: no-repeat;
+    opacity: 0.6;
+    filter: brightness(0.9);
+  }
 }

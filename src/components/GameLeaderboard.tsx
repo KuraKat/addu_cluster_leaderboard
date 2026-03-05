@@ -32,7 +32,7 @@ export default function GameLeaderboard({ game }: { game: Game }) {
         initial={{ width: 0 }}
         animate={{ width: "12rem" }}
         transition={{ delay: 0.2, duration: 0.6 }}
-        className="h-0.5 bg-primary/50 mb-10"
+        className="h-px bg-primary/50 mb-8"
       />
 
       <div className="w-full max-w-3xl space-y-4">

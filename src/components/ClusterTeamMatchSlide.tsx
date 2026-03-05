@@ -97,7 +97,7 @@ export default function ClusterTeamMatchSlide({
           initial={{ width: 0 }}
           animate={{ width: "100%" }}
           transition={{ delay: 0.2, duration: 0.6 }}
-          className="h-0.5 bg-primary/50"
+          className="h-px bg-primary/50"
         />
       </motion.div>
 
@@ -108,12 +108,16 @@ export default function ClusterTeamMatchSlide({
           initial={{ opacity: 0, x: -100 }}
           animate={{ 
             opacity: showWinner && match.winner === "B" ? 0.3 : 1, 
-            x: showWinner && match.winner === "B" ? -50 : 0 
+            x: showWinner && match.winner === "B" ? -50 : 0,
+            scale: showWinner && match.winner === "A" ? 1.1 : 1
           }}
-          transition={{ duration: 0.5 }}
+          transition={{ 
+            duration: 0.3,
+            ease: "easeInOut"
+          }}
           className={`flex-1 text-center p-8 rounded-2xl border-2 ${
-            match.winner === "A" 
-              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20' 
+            showWinner && match.winner === "A" 
+              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20 transform scale-105' 
               : 'border-white/20 bg-white/5'
           }`}
         >
@@ -127,12 +131,34 @@ export default function ClusterTeamMatchSlide({
         {/* VS Divider */}
         <motion.div
           initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
+          animate={{ 
+            opacity: 1, 
+            scale: 1,
+            x: showWinner ? (match.winner === "A" ? 30 : -30) : 0
+          }}
+          transition={{ 
+            duration: 0.3,
+            ease: "easeInOut"
+          }}
           className="text-center flex flex-col items-center gap-4"
         >
-          <Swords className="w-12 h-12 md:w-16 md:h-16 text-gold" />
-          <div className="font-display text-4xl font-bold text-muted-foreground">VS</div>
+          <motion.div
+            animate={{
+              rotate: showWinner ? (match.winner === "A" ? -15 : 15) : 0
+            }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+          >
+            <Swords className="w-12 h-12 md:w-16 md:h-16 text-gold" />
+          </motion.div>
+          <motion.div
+            animate={{
+              x: showWinner ? (match.winner === "A" ? 20 : -20) : 0
+            }}
+            transition={{ duration: 0.6, ease: "easeInOut" }}
+            className="font-display text-4xl font-bold text-muted-foreground"
+          >
+            VS
+          </motion.div>
         </motion.div>
 
         {/* Team B */}
@@ -140,12 +166,16 @@ export default function ClusterTeamMatchSlide({
           initial={{ opacity: 0, x: 100 }}
           animate={{ 
             opacity: showWinner && match.winner === "A" ? 0.3 : 1, 
-            x: showWinner && match.winner === "A" ? 50 : 0 
+            x: showWinner && match.winner === "A" ? 50 : 0,
+            scale: showWinner && match.winner === "B" ? 1.1 : 1
           }}
-          transition={{ duration: 0.5 }}
+          transition={{ 
+            duration: 0.3,
+            ease: "easeInOut"
+          }}
           className={`flex-1 text-center p-8 rounded-2xl border-2 ${
-            match.winner === "B" 
-              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20' 
+            showWinner && match.winner === "B" 
+              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20 transform scale-105' 
               : 'border-white/20 bg-white/5'
           }`}
         >
@@ -162,20 +192,37 @@ export default function ClusterTeamMatchSlide({
         {showWinner && match.winner && (
           <motion.div
             initial={{ opacity: 0, y: 50, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
+            animate={{ opacity: 1, y: 0, scale: 1.05 }}
             exit={{ opacity: 0, y: -50, scale: 0.8 }}
+            transition={{ 
+              scale: { duration: 0.6, ease: "easeOut" },
+              opacity: { duration: 0.4 },
+              y: { duration: 0.5, ease: "easeOut" }
+            }}
             className="mt-12 text-center"
           >
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <Trophy className="w-12 h-12 text-yellow-400" />
-              <h2 className="font-display text-4xl font-bold text-yellow-400">
-                {getWinnerTeam()?.name} Wins!
-              </h2>
-              <Trophy className="w-12 h-12 text-yellow-400" />
-            </div>
-            <div className="font-body text-xl text-muted-foreground">
-              +{match.winningPoints} points awarded to winner
-            </div>
+            <motion.div 
+              animate={{ 
+                scale: [1, 1.1, 1.05],
+              }}
+              transition={{ 
+                duration: 1.5, 
+                ease: "easeInOut",
+                times: [0, 0.5, 1]
+              }}
+              className="inline-block"
+            >
+              <div className="flex items-center justify-center gap-4 mb-4">
+                <Trophy className="w-12 h-12 text-yellow-400" />
+                <h2 className="font-display text-4xl font-bold text-yellow-400">
+                  {getWinnerTeam()?.name} Wins!
+                </h2>
+                <Trophy className="w-12 h-12 text-yellow-400" />
+              </div>
+              <div className="font-body text-xl text-muted-foreground">
+                +{match.winningPoints} points awarded to winner
+              </div>
+            </motion.div>
             
             {/* Admin Undo Winner Button - Below Winner Display */}
             {isAdmin && (

@@ -16,7 +16,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Game, ClusterName, PointLog, GrandFinalsMatch, Champion, ClusterTeam, ClusterTeamMatch, PendingChange, AdminLog, AdvancedSlideTiming } from '@/types/leaderboard';
+import { Game, ClusterName, PointLog, GrandFinalsMatch, Champion, ClusterTeam, ClusterTeamMatch, PendingChange, AdminLog, AdvancedSlideTiming, VignetteSettings } from '@/types/leaderboard';
 
 // Collection references
 const GAMES_COLLECTION = 'games';
@@ -783,6 +783,40 @@ export const settingsService = {
       adminName,
       action: 'settings_update',
       details: `Updated advanced slide timing`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Vignette settings operations
+  subscribeToVignetteSettings(callback: (settings: VignetteSettings) => void) {
+    return onSnapshot(doc(db, SETTINGS_COLLECTION, 'vignetteSettings'), (doc) => {
+      if (doc.exists()) {
+        callback(doc.data() as VignetteSettings);
+      } else {
+        // Default values if document doesn't exist
+        callback({
+          enabled: true,
+          radius: 30,
+          strength: 85
+        });
+      }
+    });
+  },
+
+  async updateVignetteSettings(settings: VignetteSettings, adminEmail: string, adminName: string): Promise<void> {
+    await setDoc(doc(db, SETTINGS_COLLECTION, 'vignetteSettings'), {
+      ...settings,
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'settings_update',
+      details: `Updated vignette settings - enabled: ${settings.enabled}, radius: ${settings.radius}%, strength: ${settings.strength}%`,
       timestamp: serverTimestamp(),
       approved: true
     });

@@ -75,7 +75,9 @@ function ControlledInput({ value, onChange, type = "text", disabled = false, ...
 export default function AdminPanel() {
   const { logout } = useAuth();
   const { adminData, getClusterLogoPath } = useLeaderboardData();
-  const {
+  const { 
+    vignetteSettings, 
+    updateVignetteSettings,
     updateScore, addGame, removeGame, retireGame, unretireGame, updateGameVisibility, updateGameTop3,
     addGrandFinals, removeGrandFinals, updateGrandFinals, archiveGrandFinals, unarchiveGrandFinals,
     slideDuration, updateSlideDuration, advancedSlideTiming, updateAdvancedSlideTiming,
@@ -1034,15 +1036,92 @@ export default function AdminPanel() {
                 {/* Misc Tab */}
                 {tab === "misc" && (
                   <div className="space-y-6">
+                    {/* Version Information - Always at top */}
                     <div className="glass-surface rounded-lg p-4 space-y-3">
-                      <h3 className="font-body text-sm font-semibold text-foreground">Version</h3>
+                      <h3 className="font-body text-sm font-semibold text-foreground">Version 1.2.1</h3>
                       <div className="flex items-center justify-between">
                         <div>
                           <label className="text-sm text-muted-foreground">Application Version</label>
                           <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
                         </div>
-                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.1.6</div>
+                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.2.1</div>
                       </div>
+                    </div>
+
+                    <div className="glass-surface rounded-lg p-4 space-y-3">
+                      <h3 className="font-body text-sm font-semibold text-foreground">Background Image Vignette</h3>
+                      
+                      {/* Vignette Enable/Disable */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <label className="text-sm text-muted-foreground">Enable Vignette</label>
+                          <p className="text-xs text-muted-foreground">Apply gradient overlay to background image only</p>
+                        </div>
+                        <Switch 
+                          checked={vignetteSettings.enabled} 
+                          onCheckedChange={(checked) => updateVignetteSettings({ ...vignetteSettings, enabled: checked })} 
+                        />
+                      </div>
+
+                      {/* Vignette Controls - Only show when enabled */}
+                      {vignetteSettings.enabled && (
+                        <div className="space-y-4 pt-4 border-t border-border">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                            <h4 className="font-body text-sm font-semibold text-foreground">Vignette Active</h4>
+                          </div>
+                          
+                          {/* Vignette Radius Control */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <label className="text-sm text-muted-foreground">Vignette Size</label>
+                              <p className="text-xs text-muted-foreground">Coverage area of the gradient effect (smaller = more focused)</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-muted-foreground w-8">{vignetteSettings.radius}%</span>
+                              <ControlledInput 
+                                type="number" 
+                                min={0} 
+                                max={200} 
+                                value={vignetteSettings.radius}
+                                onChange={(newValue: number) => updateVignetteSettings({ ...vignetteSettings, radius: newValue })}
+                                className="bg-muted border-border h-10 w-20 text-base" 
+                              />
+                            </div>
+                          </div>
+
+                          {/* Vignette Strength Control */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <label className="text-sm text-muted-foreground">Vignette Intensity</label>
+                              <p className="text-xs text-muted-foreground">Strength of the gradient overlay</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-muted-foreground w-8">{vignetteSettings.strength}%</span>
+                              <ControlledInput 
+                                type="number" 
+                                min={0} 
+                                max={200} 
+                                value={vignetteSettings.strength}
+                                onChange={(newValue: number) => updateVignetteSettings({ ...vignetteSettings, strength: newValue })}
+                                className="bg-muted border-border h-10 w-20 text-base" 
+                              />
+                            </div>
+                          </div>
+
+                          {/* Reset Button */}
+                          <div className="flex justify-center pt-2">
+                            <Button
+                              onClick={() => updateVignetteSettings({ ...vignetteSettings, radius: 30, strength: 85 })}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              Reset to Default
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="glass-surface rounded-lg p-4 space-y-3">

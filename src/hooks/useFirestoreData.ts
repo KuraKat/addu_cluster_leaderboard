@@ -16,7 +16,8 @@ import {
   GrandFinalsMatch, 
   Champion, 
   ClusterName, 
-  AdvancedSlideTiming 
+  AdvancedSlideTiming,
+  VignetteSettings 
 } from '@/types/leaderboard';
 import { useAuth } from './useAuth';
 
@@ -29,6 +30,7 @@ interface FirestoreDataStore {
   adminLogs: AdminLog[];
   slideDuration: number;
   advancedSlideTiming: AdvancedSlideTiming;
+  vignetteSettings: VignetteSettings;
   loading: boolean;
   error: string | null;
   
@@ -66,6 +68,7 @@ interface FirestoreDataStore {
   // Settings
   updateSlideDuration: (duration: number) => Promise<void>;
   updateAdvancedSlideTiming: (timing: AdvancedSlideTiming) => Promise<void>;
+  updateVignetteSettings: (settings: VignetteSettings) => Promise<void>;
 }
 
 export function useFirestoreData(): FirestoreDataStore {
@@ -84,6 +87,11 @@ export function useFirestoreData(): FirestoreDataStore {
     grandFinals: 14, // Grand finals have 2 phases, so longer by default
     clusterTeamMatches: 7,
     useAdvanced: false
+  });
+  const [vignetteSettings, setVignetteSettings] = useState<VignetteSettings>({
+    enabled: true,
+    radius: 30,
+    strength: 85
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,6 +158,12 @@ export function useFirestoreData(): FirestoreDataStore {
       unsubscribers.push(
         settingsService.subscribeToAdvancedSlideTiming((timing) => {
           setAdvancedSlideTiming(timing);
+        })
+      );
+
+      unsubscribers.push(
+        settingsService.subscribeToVignetteSettings((settings) => {
+          setVignetteSettings(settings);
         })
       );
 
@@ -420,6 +434,17 @@ export function useFirestoreData(): FirestoreDataStore {
     }
   }, [getAdminInfo, setAdvancedSlideTiming]);
 
+  const updateVignetteSettings = useCallback(async (settings: VignetteSettings) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await settingsService.updateVignetteSettings(settings, adminInfo.email, adminInfo.name);
+      setVignetteSettings(settings);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update vignette settings');
+      throw err;
+    }
+  }, [getAdminInfo, setVignetteSettings]);
+
   return {
     games,
     grandFinals,
@@ -429,6 +454,7 @@ export function useFirestoreData(): FirestoreDataStore {
     adminLogs,
     slideDuration,
     advancedSlideTiming,
+    vignetteSettings,
     loading,
     error,
     
@@ -453,13 +479,14 @@ export function useFirestoreData(): FirestoreDataStore {
     
     addClusterTeamMatch,
     updateClusterTeamMatch,
+    deleteClusterTeamMatch,
     setMatchWinner,
     undoMatchWinner,
     archiveClusterTeamMatch,
     unarchiveClusterTeamMatch,
-    deleteClusterTeamMatch,
     
     updateSlideDuration,
     updateAdvancedSlideTiming,
+    updateVignetteSettings,
   };
 }

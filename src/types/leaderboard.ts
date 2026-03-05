@@ -130,3 +130,9 @@ export interface AdvancedSlideTiming {
   clusterTeamMatches: number;
   useAdvanced: boolean; // Master switch for advanced timing
 }
+
+export interface VignetteSettings {
+  enabled: boolean;
+  radius: number; // 0-200, where 0 is smallest (strongest) and 200 is largest (weakest)
+  strength: number; // 0-200, where 0 is no vignette and 200 is maximum strength
+}
