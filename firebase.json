@@ -13,7 +13,7 @@
       }
     ]
   },
-  "auth": {
-    "providers": {}
+  "firestore": {
+    "rules": "firebase.rules"
   }
 }

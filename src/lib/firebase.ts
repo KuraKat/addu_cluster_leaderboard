@@ -1,15 +1,15 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence } from 'firebase/auth';
 
-// Replace with your actual Firebase config
+// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyCwDvt9bGO2C1WqXORi3X1ETV631C6IVB4",
-  authDomain: "adduleaderboard.firebaseapp.com",
-  projectId: "adduleaderboard",
-  storageBucket: "adduleaderboard.firebasestorage.app",
-  messagingSenderId: "31525332671",
-  appId: "1:31525332671:web:57148c6496514b13d2c80a",
-  measurementId: "G-CVWT7KPHQX"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
