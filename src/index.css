@@ -1,0 +1,113 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 60% 12%;
+    --foreground: 210 20% 97%;
+
+    --card: 220 55% 18%;
+    --card-foreground: 210 20% 97%;
+
+    --popover: 220 55% 20%;
+    --popover-foreground: 210 20% 97%;
+
+    --primary: 220 80% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 50% 24%;
+    --secondary-foreground: 210 20% 95%;
+
+    --muted: 220 45% 20%;
+    --muted-foreground: 215 20% 60%;
+
+    --accent: 220 70% 45%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 40% 28%;
+    --input: 220 40% 28%;
+    --ring: 220 80% 55%;
+
+    --radius: 0.75rem;
+
+    --gold: 43 96% 56%;
+    --gold-glow: 43 100% 70%;
+    --silver: 210 10% 72%;
+    --silver-glow: 210 15% 82%;
+    --bronze: 25 60% 48%;
+    --bronze-glow: 25 70% 60%;
+
+    --surface-glass: 220 55% 15%;
+
+    --sidebar-background: 220 60% 14%;
+    --sidebar-foreground: 210 20% 95%;
+    --sidebar-primary: 220 80% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 50% 24%;
+    --sidebar-accent-foreground: 210 20% 95%;
+    --sidebar-border: 220 40% 28%;
+    --sidebar-ring: 220 80% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Orbitron', sans-serif;
+  }
+  .font-body {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .glass-surface {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50;
+  }
+  .text-gold {
+    color: hsl(var(--gold));
+  }
+  .text-silver {
+    color: hsl(var(--silver));
+  }
+  .text-bronze {
+    color: hsl(var(--bronze));
+  }
+  .bg-gold {
+    background-color: hsl(var(--gold));
+  }
+  .bg-silver {
+    background-color: hsl(var(--silver));
+  }
+  .bg-bronze {
+    background-color: hsl(var(--bronze));
+  }
+  .glow-gold {
+    box-shadow: 0 0 30px hsl(var(--gold) / 0.3), 0 0 60px hsl(var(--gold) / 0.1);
+  }
+  .glow-silver {
+    box-shadow: 0 0 20px hsl(var(--silver) / 0.2);
+  }
+  .glow-bronze {
+    box-shadow: 0 0 20px hsl(var(--bronze) / 0.2);
+  }
+  .text-gradient-gold {
+    background: linear-gradient(135deg, hsl(var(--gold)), hsl(var(--gold-glow)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
