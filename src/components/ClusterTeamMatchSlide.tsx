@@ -220,7 +220,7 @@ export default function ClusterTeamMatchSlide({
                 <Trophy className="w-12 h-12 text-yellow-400" />
               </div>
               <div className="font-body text-xl text-muted-foreground">
-                +{match.winningPoints} points awarded to winner
+              
               </div>
             </motion.div>
             

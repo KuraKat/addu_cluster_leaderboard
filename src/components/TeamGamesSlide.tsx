@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
-import { TeamGame, CLUSTER_CONFIG } from "@/types/leaderboard";
+import { TeamGame, CLUSTER_CONFIG, ClusterName } from "@/types/leaderboard";
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 
 export default function TeamGamesSlide({ teamGame }: { teamGame: TeamGame }) {
-  const { getClusterLogoPath } = useLeaderboardData();
+  const { getClusterLogoPath, adminData } = useLeaderboardData();
+  const { clusterTeams } = adminData;
   
   // Create ranking from team scores
   const ranking = teamGame.teams
@@ -33,6 +34,58 @@ export default function TeamGamesSlide({ teamGame }: { teamGame: TeamGame }) {
     }
   };
 
+  // Get mixed color for the bar based on team clusters
+  const getMixedBarColor = (clusters: ClusterName[]) => {
+    if (clusters.length === 0) return "bg-blue-500";
+    if (clusters.length === 1) {
+      const config = CLUSTER_CONFIG[clusters[0]];
+      return config?.bgColor || "bg-blue-500";
+    }
+    
+    // For multiple clusters, create a gradient representation
+    // We'll handle this in the JSX with actual gradient classes
+    return "bg-gradient-to-r";
+  };
+
+  // Get gradient classes for multiple clusters
+  const getGradientClasses = (clusters: ClusterName[]) => {
+    if (clusters.length <= 1) return "";
+    
+    const colors = clusters.map(cluster => {
+      const config = CLUSTER_CONFIG[cluster];
+      return config?.bgColor?.replace('bg-', '') || 'blue-500';
+    });
+    
+    return colors.join(' ');
+  };
+
+  // Get mixed border color for the bar
+  const getMixedBorderColor = (clusters: ClusterName[]) => {
+    if (clusters.length === 0) return "border-blue-500";
+    if (clusters.length === 1) {
+      const config = CLUSTER_CONFIG[clusters[0]];
+      return config?.borderColor || "border-blue-500";
+    }
+    
+    // For multiple clusters, create gradient border using first cluster color
+    const firstConfig = CLUSTER_CONFIG[clusters[0]];
+    return firstConfig?.borderColor || "border-blue-500";
+  };
+
+  // Get rank color based on position
+  const getRankColor = (rank: number) => {
+    switch (rank) {
+      case 1:
+        return "text-yellow-400"; // Gold
+      case 2:
+        return "text-gray-300"; // Silver
+      case 3:
+        return "text-orange-600"; // Bronze
+      default:
+        return "text-blue-500"; // Default blue for 4th+
+    }
+  };
+
   // Get team config - use cluster config for teams that match cluster names
   const getTeamConfig = (teamName: string) => {
     // Try to find a matching cluster if team name matches a cluster
@@ -53,6 +106,25 @@ export default function TeamGamesSlide({ teamGame }: { teamGame: TeamGame }) {
     };
   };
 
+  // Get all clusters for a team (like ChampionsSlide logic)
+  const getClustersForTeam = (teamName: string): ClusterName[] => {
+    // Find the cluster team that matches this team name
+    const clusterTeam = clusterTeams.find(ct => ct.name === teamName);
+    if (clusterTeam) {
+      // Filter to only valid cluster names
+      return clusterTeam.clusters.filter(cluster => 
+        Object.keys(CLUSTER_CONFIG).includes(cluster)
+      ) as ClusterName[];
+    }
+    
+    // If no cluster team found, check if team name is a valid cluster name
+    if (Object.keys(CLUSTER_CONFIG).includes(teamName)) {
+      return [teamName as ClusterName];
+    }
+    
+    return [];
+  };
+
   return (
     <div className="flex flex-col items-center justify-center h-full px-8 pb-16 pt-12">
       <motion.h2
@@ -64,15 +136,6 @@ export default function TeamGamesSlide({ teamGame }: { teamGame: TeamGame }) {
         {teamGame.name.toUpperCase()}
       </motion.h2>
       
-      {/* Team names display */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: 0.5 }}
-        className="text-lg md:text-xl text-muted-foreground mb-6 text-center"
-      >
-        {formatTeamNames(teamGame.teams)}
-      </motion.div>
       
       <motion.div
         initial={{ width: 0 }}
@@ -84,6 +147,12 @@ export default function TeamGamesSlide({ teamGame }: { teamGame: TeamGame }) {
       <div className="w-full max-w-3xl space-y-4">
         {displayRanking.map((entry, i) => {
           const config = getTeamConfig(entry.team);
+          const teamClusters = getClustersForTeam(entry.team);
+          const barColor = getMixedBarColor(teamClusters);
+          const borderColor = "border-white"; // Always white border
+          const rankColor = getRankColor(i + 1);
+          const gradientClasses = getGradientClasses(teamClusters);
+          
           return (
             <motion.div
               key={entry.team}
@@ -92,47 +161,118 @@ export default function TeamGamesSlide({ teamGame }: { teamGame: TeamGame }) {
               transition={{ delay: 0.3 + i * 0.1, duration: 0.5 }}
               className="flex items-center gap-4"
             >
-              <span className={`font-display text-2xl font-black w-10 text-right ${config.color}`}>
+              <span className={`font-display text-2xl font-black w-10 text-right ${rankColor}`}>
                 {i + 1}
               </span>
               <div className="flex-1 relative">
-                <div className={`relative h-14 flex items-center border-2 rounded-lg ${config.borderColor} ${
+                <div className={`relative h-24 flex flex-col items-start justify-start border-2 rounded-lg ${borderColor} ${
                   i === 0 
-                    ? `shadow-[0_0_20px_rgba(var(--tw-shadow-color),0.5)]`
+                    ? `shadow-[0_0_20px_rgba(255,255,255,0.3)]`
                     : ``
                 }`}>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(entry.score / maxScore) * 100}%` }}
-                    transition={{ delay: 0.5 + i * 0.1, duration: 0.8, ease: "easeOut" }}
-                    className={`absolute inset-y-0 left-0 ${config.bgColor} [clip-path:inset(0_round_0.5rem)]`}
-                  />
-                  <div className="relative z-10 flex items-center justify-between w-full px-5">
-                    <div className="flex items-center gap-3">
-                      {/* Use rounded cluster logo like GameLeaderboard */}
-                      <motion.img
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.3 + i * 0.08, duration: 0.5, ease: "easeOut" }}
-                        src={getClusterLogoPath(entry.team)}
-                        alt={entry.team}
-                        className="w-8 h-8 rounded-full object-cover"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                      <span className={`font-body text-lg font-semibold ${
-                        i === 0 ? "text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]" : "text-white drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
-                      }`}>
-                        {entry.team}
-                      </span>
-                    </div>
-                    <span className={`font-display text-xl font-bold ${
-                      i === 0 ? "text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]" : "text-white drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
-                    }`}>
-                      {entry.score}
-                    </span>
+                  {/* Team Name at Top - Left aligned */}
+                  <div className="w-full py-2 text-left border-b border-white/20 px-5">
+                    <motion.span
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 + i * 0.1, duration: 0.5 }}
+                      className="font-display text-xl font-bold text-white drop-shadow-[0_0_8px_rgba(0,0,0,0.8)]"
+                    >
+                      {entry.team}
+                    </motion.span>
                   </div>
+                  
+                  {/* Full Width Color Bar with Cluster Sections */}
+                  <div className="relative w-full h-full flex-1">
+                    {teamClusters.length === 1 ? (
+                      // Single cluster - solid color, full width
+                      <div
+                        className={`absolute bottom-0 left-0 h-full w-full ${barColor} [clip-path:inset(0_round_0.5rem)]`}
+                      />
+                    ) : (
+                      // Multiple clusters - side-by-side sections, full width
+                      <div className="absolute bottom-0 left-0 h-full w-full flex [clip-path:inset(0_round_0.5rem)]">
+                        {teamClusters.map((cluster, clusterIdx) => {
+                          const config = CLUSTER_CONFIG[cluster];
+                          const clusterWidth = 100 / teamClusters.length; // Equal width for each cluster
+                          return (
+                            <div key={cluster} className="relative h-full flex items-center justify-center" style={{ width: `${clusterWidth}%` }}>
+                              <div
+                                className={`absolute inset-0 h-full ${config?.bgColor || 'bg-blue-500'}`}
+                              />
+                              
+                              {/* Cluster Logo and Name - Inside colored section */}
+                              <div className="relative z-10 flex items-center gap-2">
+                                <motion.img
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{ opacity: 1, scale: 1 }}
+                                  transition={{ delay: 0.3 + i * 0.08 + clusterIdx * 0.05, duration: 0.5, ease: "easeOut" }}
+                                  src={getClusterLogoPath(cluster)}
+                                  alt={cluster}
+                                  className="w-8 h-8 rounded-full object-cover border border-white/50"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none";
+                                  }}
+                                />
+                                <motion.span
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: 0.4 + i * 0.08 + clusterIdx * 0.05, duration: 0.5, ease: "easeOut" }}
+                                  className="font-body text-sm font-bold text-white drop-shadow-[0_0_4px_rgba(0,0,0,0.8)]"
+                                >
+                                  {cluster}
+                                </motion.span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    {/* Single cluster - logo and name inside colored section */}
+                    {teamClusters.length === 1 && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        {teamClusters.map((cluster) => {
+                          const config = CLUSTER_CONFIG[cluster];
+                          return (
+                            <div key={cluster} className="flex items-center gap-3">
+                              <motion.img
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: 0.3 + i * 0.08, duration: 0.5, ease: "easeOut" }}
+                                src={getClusterLogoPath(cluster)}
+                                alt={cluster}
+                                className="w-10 h-10 rounded-full object-cover border border-white/50"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                              <motion.span
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.4 + i * 0.08, duration: 0.5, ease: "easeOut" }}
+                                className="font-body text-lg font-bold text-white drop-shadow-[0_0_6px_rgba(0,0,0,0.8)]"
+                              >
+                                {cluster}
+                              </motion.span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Score Display - White text with "pts" inline */}
+                <div className="absolute top-2 right-4 text-right">
+                  <motion.span 
+                    className="font-display text-2xl font-black text-white drop-shadow-[0_0_6px_rgba(0,0,0,0.8)]"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.6 + i * 0.1, duration: 0.5 }}
+                  >
+                    {entry.score} pts
+                  </motion.span>
                 </div>
               </div>
             </motion.div>
