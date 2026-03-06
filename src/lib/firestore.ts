@@ -28,6 +28,7 @@ const TEAM_MATCHES_COLLECTION = 'clusterTeamMatches';
 const PENDING_CHANGES_COLLECTION = 'pendingChanges';
 const ADMIN_LOGS_COLLECTION = 'adminLogs';
 const SETTINGS_COLLECTION = 'settings';
+const CONFIG_COLLECTION = 'config';
 
 // Helper to convert Firestore timestamps
 function fromFirestoreTimestamp(timestamp: Timestamp): number {
@@ -864,6 +865,142 @@ export const settingsService = {
       adminName,
       action: 'settings_update',
       details: `Updated vignette settings - enabled: ${settings.enabled}, radius: ${settings.radius}%, strength: ${settings.strength}%`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+};
+
+// Unified Config Service (NEW)
+export const configService = {
+  // Get unified config document
+  async getGlobalConfig(): Promise<{
+    slideDuration: number;
+    advancedSlideTiming: AdvancedSlideTiming;
+    vignetteSettings: VignetteSettings;
+  }> {
+    const docRef = doc(db, CONFIG_COLLECTION, 'global');
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      return {
+        slideDuration: data.slideDuration || 7,
+        advancedSlideTiming: data.advancedSlideTiming || {
+          overallStanding: 7,
+          games: 7,
+          hallOfChampions: 7,
+          grandFinals: 14,
+          clusterTeamMatches: 7,
+          useAdvanced: false
+        },
+        vignetteSettings: data.vignetteSettings || {
+          enabled: true,
+          radius: 30,
+          strength: 85
+        }
+      };
+    }
+    
+    // Return defaults if document doesn't exist
+    return {
+      slideDuration: 7,
+      advancedSlideTiming: {
+        overallStanding: 7,
+        games: 7,
+        hallOfChampions: 7,
+        grandFinals: 14,
+        clusterTeamMatches: 7,
+        useAdvanced: false
+      },
+      vignetteSettings: {
+        enabled: true,
+        radius: 30,
+        strength: 85
+      }
+    };
+  },
+
+  // Subscribe to unified config
+  subscribe(callback: (config: {
+    slideDuration: number;
+    advancedSlideTiming: AdvancedSlideTiming;
+    vignetteSettings: VignetteSettings;
+  }) => void) {
+    return onSnapshot(doc(db, CONFIG_COLLECTION, 'global'), (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        callback({
+          slideDuration: data.slideDuration || 7,
+          advancedSlideTiming: data.advancedSlideTiming || {
+            overallStanding: 7,
+            games: 7,
+            hallOfChampions: 7,
+            grandFinals: 14,
+            clusterTeamMatches: 7,
+            useAdvanced: false
+          },
+          vignetteSettings: data.vignetteSettings || {
+            enabled: true,
+            radius: 30,
+            strength: 85
+          }
+        });
+      } else {
+        // Default values
+        callback({
+          slideDuration: 7,
+          advancedSlideTiming: {
+            overallStanding: 7,
+            games: 7,
+            hallOfChampions: 7,
+            grandFinals: 14,
+            clusterTeamMatches: 7,
+            useAdvanced: false
+          },
+          vignetteSettings: {
+            enabled: true,
+            radius: 30,
+            strength: 85
+          }
+        });
+      }
+    });
+  },
+
+  // Update unified config
+  async updateGlobalConfig(
+    updates: {
+      slideDuration?: number;
+      advancedSlideTiming?: AdvancedSlideTiming;
+      vignetteSettings?: VignetteSettings;
+    },
+    adminEmail: string,
+    adminName: string
+  ): Promise<void> {
+    const docRef = doc(db, CONFIG_COLLECTION, 'global');
+    const currentConfig = await this.getGlobalConfig();
+    
+    const newConfig = {
+      ...currentConfig,
+      ...updates,
+      updatedAt: serverTimestamp()
+    };
+
+    await setDoc(docRef, newConfig);
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    const updateDetails = [];
+    if (updates.slideDuration !== undefined) updateDetails.push(`slide duration: ${updates.slideDuration}s`);
+    if (updates.advancedSlideTiming !== undefined) updateDetails.push('advanced slide timing');
+    if (updates.vignetteSettings !== undefined) updateDetails.push('vignette settings');
+    
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'config_update',
+      details: `Updated global config: ${updateDetails.join(', ')}`,
       timestamp: serverTimestamp(),
       approved: true
     });

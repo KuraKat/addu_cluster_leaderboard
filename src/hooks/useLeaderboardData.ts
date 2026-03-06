@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useFirestoreData } from '@/hooks/useFirestoreData';
+import { useFirestoreDataContext } from '@/contexts/FirestoreDataContext';
 import { ALL_CLUSTERS, ClusterName } from '@/types/leaderboard';
 
 export function useLeaderboardData() {
@@ -10,11 +10,10 @@ export function useLeaderboardData() {
     champions,
     clusterTeams,
     clusterTeamMatches,
-    adminLogs,
     slideDuration,
     loading,
     error
-  } = useFirestoreData();
+  } = useFirestoreDataContext();
 
   // Standardized filtered data for slides
   const slideData = useMemo(() => {
@@ -95,7 +94,6 @@ export function useLeaderboardData() {
       },
       champions,
       clusterTeams,
-      adminLogs,
       slideDuration,
       loading,
       error
@@ -143,7 +141,6 @@ export function useLeaderboardData() {
       champions,
       clusterTeams,
       clusterTeamMatches,
-      adminLogs,
       slideDuration,
       loading,
       error

@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence, signInAnonymously } from 'firebase/auth';
+import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { connectFirestoreEmulator } from "firebase/firestore";
+
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -17,6 +19,12 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 
+// Only connect to the emulator if you are in development
+if (location.hostname === "localhost") {
+  connectFirestoreEmulator(db, '127.0.0.1', 8081);
+  connectAuthEmulator(auth, "http://127.0.0.1:9099");
+}
+
 // Set auth persistence to none (logout on refresh)
 setPersistence(auth, inMemoryPersistence);
 
@@ -32,3 +40,13 @@ export const signInAnonymouslyIfNeeded = async () => {
 };
 
 export { signInWithEmailAndPassword, signOut };
+
+const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+
+  if (isLocal) {
+    console.log("🔥 Connecting to Firestore Emulator on 8081...");
+    connectFirestoreEmulator(db, '127.0.0.1', 8081);
+    connectAuthEmulator(auth, "http://127.0.0.1:9099");
+  } else {
+    console.log("☁️ Connecting to Production Firestore...");
+  }

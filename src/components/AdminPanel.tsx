@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useFirestoreData } from "@/hooks/useFirestoreData";
 import { useLeaderboardData } from "@/hooks/useLeaderboardData";
+import { useAdminData } from "@/hooks/useAdminData";
 import { useAuth } from "@/hooks/useAuth";
-import { X, Settings, Plus, Trash2, Archive, History, LogOut, Users, Trophy, TrendingUp } from "lucide-react";
+import { X, Settings, Plus, Trash2, Archive, History, LogOut, Users, Trophy, TrendingUp, RefreshCw } from "lucide-react";
 import { ALL_CLUSTERS, ClusterName } from "@/types/leaderboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +76,7 @@ function ControlledInput({ value, onChange, type = "text", disabled = false, ...
 export default function AdminPanel() {
   const { logout } = useAuth();
   const { adminData, getClusterLogoPath } = useLeaderboardData();
+  const { adminLogs, refreshLogs } = useAdminData();
   const { 
     vignetteSettings, 
     updateVignetteSettings,
@@ -86,7 +88,7 @@ export default function AdminPanel() {
     addTeamGame, updateTeamGameScore, removeTeamGame, retireTeamGame, unretireTeamGame, updateTeamGameVisibility,
   } = useFirestoreData();
   
-  const { games, grandFinals, clusterTeamMatches, clusterTeams, champions, adminLogs } = adminData;
+  const { games, grandFinals, clusterTeamMatches, clusterTeams, champions } = adminData;
   const { teamGames } = adminData;
 
   const [open, setOpen] = useState(false);
@@ -1140,6 +1142,18 @@ export default function AdminPanel() {
                 {/* Logs Tab */}
                 {tab === "logs" && (
                   <div className="space-y-2">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold">Admin Activity Logs</h3>
+                      <Button
+                        onClick={refreshLogs}
+                        variant="outline"
+                        size="sm"
+                        className="flex items-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Refresh
+                      </Button>
+                    </div>
                     {adminLogs.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No activity yet</p>}
                     {adminLogs.slice(0, 50).map((log) => {
                       // Determine if this action can be reverted

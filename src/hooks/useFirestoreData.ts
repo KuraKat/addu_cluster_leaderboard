@@ -4,8 +4,7 @@ import {
   teamGamesService,
   clusterTeamsService, 
   clusterTeamMatchesService, 
-  adminLogsService, 
-  settingsService,
+  configService,
   grandFinalsService,
   championsService
 } from '@/lib/firestore';
@@ -13,7 +12,6 @@ import {
   Game, 
   ClusterTeam, 
   ClusterTeamMatch, 
-  AdminLog, 
   GrandFinalsMatch, 
   Champion, 
   ClusterName, 
@@ -30,7 +28,6 @@ interface FirestoreDataStore {
   champions: Champion[];
   clusterTeams: ClusterTeam[];
   clusterTeamMatches: ClusterTeamMatch[];
-  adminLogs: AdminLog[];
   slideDuration: number;
   advancedSlideTiming: AdvancedSlideTiming;
   vignetteSettings: VignetteSettings;
@@ -90,7 +87,6 @@ export function useFirestoreData(): FirestoreDataStore {
   const [champions, setChampions] = useState<Champion[]>([]);
   const [clusterTeams, setClusterTeams] = useState<ClusterTeam[]>([]);
   const [clusterTeamMatches, setClusterTeamMatches] = useState<ClusterTeamMatch[]>([]);
-  const [adminLogs, setAdminLogs] = useState<AdminLog[]>([]);
   const [slideDuration, setSlideDuration] = useState(7);
   const [advancedSlideTiming, setAdvancedSlideTiming] = useState<AdvancedSlideTiming>({
     overallStanding: 7,
@@ -161,27 +157,12 @@ export function useFirestoreData(): FirestoreDataStore {
         })
       );
 
+      // Unified config subscription (replaces 3 separate subscriptions)
       unsubscribers.push(
-        adminLogsService.subscribe((data) => {
-          setAdminLogs(data);
-        })
-      );
-
-      unsubscribers.push(
-        settingsService.subscribeToSlideDuration((duration) => {
-          setSlideDuration(duration);
-        })
-      );
-
-      unsubscribers.push(
-        settingsService.subscribeToAdvancedSlideTiming((timing) => {
-          setAdvancedSlideTiming(timing);
-        })
-      );
-
-      unsubscribers.push(
-        settingsService.subscribeToVignetteSettings((settings) => {
-          setVignetteSettings(settings);
+        configService.subscribe((config) => {
+          setSlideDuration(config.slideDuration);
+          setAdvancedSlideTiming(config.advancedSlideTiming);
+          setVignetteSettings(config.vignetteSettings);
         })
       );
 
@@ -433,7 +414,7 @@ export function useFirestoreData(): FirestoreDataStore {
   const updateSlideDuration = useCallback(async (duration: number) => {
     try {
       const adminInfo = getAdminInfo();
-      await settingsService.updateSlideDuration(duration, adminInfo.email, adminInfo.name);
+      await configService.updateGlobalConfig({ slideDuration: duration }, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update slide duration');
       throw err;
@@ -443,25 +424,22 @@ export function useFirestoreData(): FirestoreDataStore {
   const updateAdvancedSlideTiming = useCallback(async (timing: AdvancedSlideTiming) => {
     try {
       const adminInfo = getAdminInfo();
-      // For now, we'll store this in a settings document
-      await settingsService.updateAdvancedSlideTiming(timing, adminInfo.email, adminInfo.name);
-      setAdvancedSlideTiming(timing);
+      await configService.updateGlobalConfig({ advancedSlideTiming: timing }, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update advanced slide timing');
       throw err;
     }
-  }, [getAdminInfo, setAdvancedSlideTiming]);
+  }, [getAdminInfo]);
 
   const updateVignetteSettings = useCallback(async (settings: VignetteSettings) => {
     try {
       const adminInfo = getAdminInfo();
-      await settingsService.updateVignetteSettings(settings, adminInfo.email, adminInfo.name);
-      setVignetteSettings(settings);
+      await configService.updateGlobalConfig({ vignetteSettings: settings }, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update vignette settings');
       throw err;
     }
-  }, [getAdminInfo, setVignetteSettings]);
+  }, [getAdminInfo]);
 
   // Team game operations
   const addTeamGame = useCallback(async (name: string, teams: ClusterName[]) => {
@@ -550,7 +528,6 @@ export function useFirestoreData(): FirestoreDataStore {
     champions,
     clusterTeams,
     clusterTeamMatches,
-    adminLogs,
     slideDuration,
     advancedSlideTiming,
     vignetteSettings,
