@@ -16,8 +16,9 @@ export default function GlobalFooter() {
           CLUSTER LEADERBOARD 2025–2026
         </span>
       </div>
-      <div className="text-xs text-muted-foreground font-body">
-        Developed by: <a href="https://github.com/KuraKat" target="_blank" rel="noopener noreferrer" className="text-foreground font-medium hover:text-primary transition-colors">Evan Toledo, Kibs</a>
+      <div className="flex items-center gap-4 text-xs text-muted-foreground font-body">
+        <span>Current Version 1.3.4</span>
+        <span>Developed by: <a href="https://github.com/KuraKat" target="_blank" rel="noopener noreferrer" className="text-foreground font-medium hover:text-primary transition-colors">Evan Toledo, Kibs</a></span>
       </div>
     </div>
   );

@@ -1273,13 +1273,13 @@ export default function AdminPanel() {
                   <div className="space-y-6">
                     {/* Version Information - Always at top */}
                     <div className="glass-surface rounded-lg p-4 space-y-3">
-                      <h3 className="font-body text-sm font-semibold text-foreground">Version 1.3.3</h3>
+                      <h3 className="font-body text-sm font-semibold text-foreground">Version 1.3.4</h3>
                       <div className="flex items-center justify-between">
                         <div>
                           <label className="text-sm text-muted-foreground">Application Version</label>
                           <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
                         </div>
-                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.3.3</div>
+                        <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v1.3.4</div>
                       </div>
                     </div>
 
