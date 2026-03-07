@@ -157,6 +157,19 @@ export default function AdminPanel() {
     }
   };
 
+  // Safe wrapper for unretireTeamGame
+  const handleUnretireTeamGame = async (teamGameId: string) => {
+    if (unretireTeamGame) {
+      try {
+        await unretireTeamGame(teamGameId);
+      } catch (error) {
+        console.error('Failed to unretire team game:', error);
+      }
+    } else {
+      console.error('unretireTeamGame function is not available');
+    }
+  };
+
   return (
     <>
       <button
@@ -212,7 +225,7 @@ export default function AdminPanel() {
                     onRemoveGame={removeGame}
                     onRetireUnifiedGame={archiveUnifiedGame}
                     onArchiveUnifiedGame={archiveUnifiedGame}
-                    onUnretireTeamGame={unretireTeamGame}
+                    onUnretireTeamGame={handleUnretireTeamGame}
                     onIncrement={handleIncrement}
                     onDecrement={handleDecrement}
                     onTeamGameIncrement={handleTeamGameIncrement}

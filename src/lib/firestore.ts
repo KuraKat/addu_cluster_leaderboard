@@ -31,9 +31,11 @@ import {
   PointLog,
   AdminLog,
   AdvancedSlideTiming,
-  VignetteSettings
+  VignetteSettings,
+  GameStatus
 } from "@/types/leaderboard";
 import { AdminLogAction } from "@/types/admin";
+import { DB_LIMITS, ERROR_MESSAGES, VALIDATION_PATTERNS } from './constants';
 
 // Collection references
 const GAMES_COLLECTION = 'games';
@@ -47,8 +49,16 @@ const SETTINGS_COLLECTION = 'settings';
 const CONFIG_COLLECTION = 'config';
 
 // Helper to convert Firestore timestamps
-function fromFirestoreTimestamp(timestamp: Timestamp): number {
-  return timestamp.toMillis();
+function fromFirestoreTimestamp(timestamp: Timestamp | undefined | null): number {
+  if (!timestamp) {
+    return Date.now(); // Default to current time if timestamp is missing
+  }
+  try {
+    return timestamp.toMillis();
+  } catch (error) {
+    console.error('Invalid timestamp:', error);
+    return Date.now(); // Fallback to current time
+  }
 }
 
 function toFirestoreTimestamp(date: Date): Timestamp {
@@ -81,8 +91,8 @@ export const gamesService = {
   async updateScore(gameId: string, cluster: ClusterName, score: number, adminEmail: string, adminName: string) {
     const gameRef = doc(db, GAMES_COLLECTION, gameId);
     
-    // Use transaction to prevent race conditions
-    await runTransaction(db, async (transaction) => {
+    // Use transaction to prevent race conditions for the score update only
+    const gameData = await runTransaction(db, async (transaction) => {
       const gameDoc = await transaction.get(gameRef);
       
       if (!gameDoc.exists()) {
@@ -98,22 +108,29 @@ export const gamesService = {
         updatedAt: serverTimestamp()
       });
 
-      // Create admin log with proper diff information
+      return { game, oldScore };
+    });
+
+    // Create admin log outside the transaction to avoid race conditions
+    try {
       const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-      transaction.set(adminLogRef, {
+      await setDoc(adminLogRef, {
         adminEmail,
         adminName,
         action: AdminLogAction.SCORE_UPDATE,
-        details: `Updated ${cluster} score from ${oldScore} to ${score} in game: ${game.name}`,
+        details: `Updated ${cluster} score from ${gameData.oldScore} to ${score} in game: ${gameData.game.name}`,
         gameId,
-        gameName: game.name,
+        gameName: gameData.game.name,
         cluster,
-        oldScore,
+        oldScore: gameData.oldScore,
         newScore: score,
         timestamp: serverTimestamp(),
         approved: true // Direct updates are auto-approved
       });
-    });
+    } catch (logError) {
+      // Log the error but don't fail the operation
+      console.error('Failed to create admin log:', logError);
+    }
   },
 
   // Create new game
@@ -329,24 +346,30 @@ export const clusterTeamMatchesService = {
 export const adminLogsService = {
   async getAll(): Promise<AdminLog[]> {
     const snapshot = await getDocs(
-      query(collection(db, ADMIN_LOGS_COLLECTION), orderBy('timestamp', 'desc'), limit(100))
+      query(collection(db, ADMIN_LOGS_COLLECTION), orderBy('timestamp', 'desc'), limit(DB_LIMITS.MAX_ADMIN_LOGS))
     );
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      timestamp: fromFirestoreTimestamp(doc.data().timestamp)
-    } as AdminLog));
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        timestamp: fromFirestoreTimestamp(data.timestamp)
+      } as AdminLog;
+    });
   },
 
   subscribe(callback: (logs: AdminLog[]) => void) {
     return onSnapshot(
-      query(collection(db, ADMIN_LOGS_COLLECTION), orderBy('timestamp', 'desc'), limit(100)),
+      query(collection(db, ADMIN_LOGS_COLLECTION), orderBy('timestamp', 'desc'), limit(DB_LIMITS.MAX_ADMIN_LOGS)),
       (snapshot) => {
-        const logs = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: fromFirestoreTimestamp(doc.data().timestamp)
-        } as AdminLog));
+        const logs = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            timestamp: fromFirestoreTimestamp(data.timestamp)
+          } as AdminLog;
+        });
         callback(logs);
       }
     );
@@ -488,26 +511,32 @@ export const grandFinalsService = {
 export const championsService = {
   async getAll(): Promise<Champion[]> {
     const snapshot = await getDocs(collection(db, CHAMPIONS_COLLECTION));
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      gameId: doc.data().gameId || '',
-      gameName: doc.data().gameName || '',
-      cluster: doc.data().cluster || 'Salamanca',
-      score: doc.data().score || 0,
-      timestamp: fromFirestoreTimestamp(doc.data().timestamp)
-    } as Champion));
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        gameId: data.gameId || '',
+        gameName: data.gameName || '',
+        cluster: data.cluster || 'Salamanca',
+        score: data.score || 0,
+        timestamp: fromFirestoreTimestamp(data.timestamp)
+      } as Champion;
+    });
   },
 
   subscribe(callback: (champions: Champion[]) => void) {
     return onSnapshot(collection(db, CHAMPIONS_COLLECTION), (snapshot) => {
-      const champions = snapshot.docs.map(doc => ({
-        id: doc.id,
-        gameId: doc.data().gameId || '',
-        gameName: doc.data().gameName || '',
-        cluster: doc.data().cluster || 'Salamanca',
-        score: doc.data().score || 0,
-        timestamp: fromFirestoreTimestamp(doc.data().timestamp)
-      } as Champion));
+      const champions = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          gameId: data.gameId || '',
+          gameName: data.gameName || '',
+          cluster: data.cluster || 'Salamanca',
+          score: data.score || 0,
+          timestamp: fromFirestoreTimestamp(data.timestamp)
+        } as Champion;
+      });
       callback(champions);
     });
   }
@@ -563,12 +592,67 @@ export const allUnifiedTeamGamesService = {
     adminEmail: string,
     adminName: string
   ): Promise<string> {
+    // Input validation
+    if (!title || title.trim().length === 0) {
+      throw new Error(ERROR_MESSAGES.GAME_TITLE_REQUIRED);
+    }
+    
+    if (title.trim().length > DB_LIMITS.MAX_GAME_TITLE_LENGTH) {
+      throw new Error(ERROR_MESSAGES.GAME_TITLE_TOO_LONG);
+    }
+    
+    if (!teams || teams.length < DB_LIMITS.MIN_TEAMS_PER_GAME) {
+      throw new Error(ERROR_MESSAGES.MIN_TEAMS_REQUIRED);
+    }
+    
+    if (teams.length > DB_LIMITS.MAX_TEAMS_PER_GAME) {
+      throw new Error(ERROR_MESSAGES.MAX_TEAMS_EXCEEDED);
+    }
+    
+    // Validate each team
+    const teamNames = new Set<string>();
+    for (const team of teams) {
+      if (!team.name || team.name.trim().length === 0) {
+        throw new Error(ERROR_MESSAGES.TEAM_NAME_REQUIRED);
+      }
+      
+      if (team.name.trim().length > DB_LIMITS.MAX_TEAM_NAME_LENGTH) {
+        throw new Error(ERROR_MESSAGES.TEAM_NAME_TOO_LONG);
+      }
+      
+      if (!VALIDATION_PATTERNS.TEAM_NAME.test(team.name.trim())) {
+        throw new Error(ERROR_MESSAGES.TEAM_NAME_INVALID_CHARS);
+      }
+      
+      if (teamNames.has(team.name.trim())) {
+        throw new Error(`${ERROR_MESSAGES.DUPLICATE_TEAM_NAME}: "${team.name}"`);
+      }
+      
+      teamNames.add(team.name.trim());
+      
+      if (!team.clusters || team.clusters.length === 0) {
+        throw new Error(`${ERROR_MESSAGES.CLUSTERS_REQUIRED} for team "${team.name}"`);
+      }
+      
+      if (team.clusters.length > DB_LIMITS.MAX_CLUSTERS_PER_TEAM) {
+        throw new Error(`${ERROR_MESSAGES.MAX_CLUSTERS_EXCEEDED} for team "${team.name}"`);
+      }
+      
+      // Validate cluster names
+      for (const cluster of team.clusters) {
+        if (!ALL_CLUSTERS.includes(cluster as ClusterName)) {
+          throw new Error(`${ERROR_MESSAGES.INVALID_CLUSTER} "${cluster}" for team "${team.name}"`);
+        }
+      }
+    }
+
     const docRef = await addDoc(collection(db, TEAM_GAMES_COLLECTION), {
-      title,
+      title: title.trim(),
       isTeamGame: true,
       isVersus: false,
       teams: teams.map(team => ({
-        ...team,
+        name: team.name.trim(),
+        clusters: team.clusters,
         points: 0,
         isActive: true,
         isWinner: false
@@ -584,7 +668,7 @@ export const allUnifiedTeamGamesService = {
       adminEmail,
       adminName,
       action: 'team_game_create',
-      details: `Created team game: ${title} with ${teams.length} teams`,
+      details: `Created team game: ${title.trim()} with ${teams.length} teams`,
       timestamp: serverTimestamp(),
       approved: true
     });
@@ -789,7 +873,7 @@ export const allUnifiedTeamGamesService = {
     });
   },
 
-  async updateGameStatus(gameId: string, status: 'active' | 'archived', adminEmail: string, adminName: string): Promise<void> {
+  async updateGameStatus(gameId: string, status: GameStatus, adminEmail: string, adminName: string): Promise<void> {
     const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
     await updateDoc(gameRef, {
       status,

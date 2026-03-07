@@ -10,6 +10,21 @@ interface AdminDataStore {
   refreshLogs: () => Promise<void>;
 }
 
+// Helper function to check if user has admin privileges
+const hasAdminRole = (user: any): boolean => {
+  if (!user) return false;
+  
+  // Check email domain or specific admin emails
+  const adminEmails = [
+    'admin@addu.org',
+    'evan@addu.org',
+    // Add other admin emails here
+  ];
+  
+  const userEmail = user.email?.toLowerCase();
+  return adminEmails.includes(userEmail) || userEmail?.endsWith('@addu.org') || false;
+};
+
 export function useAdminData(): AdminDataStore {
   const { user } = useAuth();
   const [adminLogs, setAdminLogs] = useState<AdminLog[]>([]);
@@ -20,6 +35,12 @@ export function useAdminData(): AdminDataStore {
     try {
       setLoading(true);
       setError(null);
+      
+      // Check admin privileges before fetching logs
+      if (!hasAdminRole(user)) {
+        throw new Error('Access denied: Admin privileges required');
+      }
+      
       const logs = await adminLogsService.getAll();
       setAdminLogs(logs);
     } catch (err) {
@@ -27,7 +48,17 @@ export function useAdminData(): AdminDataStore {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
+
+  // Initial load - only if user has admin role
+  useEffect(() => {
+    if (hasAdminRole(user)) {
+      refreshLogs();
+    } else {
+      setLoading(false);
+      setError('Access denied: Admin privileges required');
+    }
+  }, [user, refreshLogs]);
 
   return {
     adminLogs,

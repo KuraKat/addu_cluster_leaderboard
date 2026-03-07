@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   gamesService, 
   allUnifiedTeamGamesService,
@@ -6,6 +6,7 @@ import {
   grandFinalsService,
   championsService
 } from '@/lib/firestore';
+import { subscriptionManager } from '@/lib/subscriptionManager';
 import { 
   Game, 
   ClusterName,
@@ -13,7 +14,8 @@ import {
   GrandFinalsMatch, 
   Champion, 
   VignetteSettings,
-  AdvancedSlideTiming
+  AdvancedSlideTiming,
+  GameStatus
 } from '@/types/leaderboard';
 import { useAuth } from './useAuth';
 
@@ -50,7 +52,7 @@ interface FirestoreDataStore {
   updateTeamGameScore: (gameId: string, teamName: string, points: number) => Promise<void>;
   archiveGame: (gameId: string) => Promise<void>;
   deleteUnifiedGame: (gameId: string) => Promise<void>;
-  updateUnifiedGameStatus: (gameId: string, status: 'active' | 'archived') => Promise<void>;
+  updateUnifiedGameStatus: (gameId: string, status: GameStatus) => Promise<void>;
   unretireTeamGame: (teamGameId: string) => Promise<void>;
   updateTeamGameVisibility: (teamGameId: string, showTop5: boolean) => Promise<void>;
   updateTeamGameTop3: (teamGameId: string, showTop3: boolean) => Promise<void>;
@@ -72,6 +74,9 @@ interface FirestoreDataStore {
     advancedSlideTiming?: AdvancedSlideTiming;
     vignetteSettings?: VignetteSettings;
   }) => Promise<void>;
+  
+  // Static data refresh
+  refreshChampions: () => Promise<void>;
 }
 
 export function useFirestoreData(): FirestoreDataStore {
@@ -97,6 +102,11 @@ export function useFirestoreData(): FirestoreDataStore {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Refs for caching and optimization
+  const championsCacheRef = useRef<Champion[]>([]);
+  const lastChampionsFetchRef = useRef<number>(0);
+  const CHAMPIONS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
   // Get admin info for logging with validation
   const getAdminInfo = useCallback(() => {
     if (!user) {
@@ -108,66 +118,84 @@ export function useFirestoreData(): FirestoreDataStore {
     };
   }, [user]);
 
+  // Optimized champions data fetching with caching
+  const fetchChampionsData = useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    const cacheValid = !forceRefresh && 
+                      championsCacheRef.current.length > 0 && 
+                      (now - lastChampionsFetchRef.current) < CHAMPIONS_CACHE_DURATION;
+
+    if (cacheValid) {
+      setChampions(championsCacheRef.current);
+      return;
+    }
+
+    try {
+      const championsData = await championsService.getAll();
+      championsCacheRef.current = championsData;
+      lastChampionsFetchRef.current = now;
+      setChampions(championsData);
+    } catch (err) {
+      console.error('Failed to fetch champions data:', err);
+      // Don't fail the entire hook if champions fetch fails
+      if (championsCacheRef.current.length > 0) {
+        setChampions(championsCacheRef.current); // Use cached data as fallback
+      }
+    }
+  }, []);
+
   // Initialize data and set up real-time listeners
   useEffect(() => {
     setLoading(true);
     setError(null);
 
-    const unsubscribers: (() => void)[] = [];
-
     try {
-      // Set up real-time listeners for dynamic data
-      unsubscribers.push(
-        gamesService.subscribe((data) => {
-          setGames(data);
-        })
-      );
-
-      unsubscribers.push(
-        allUnifiedTeamGamesService.subscribe((data) => {
-          setUnifiedTeamGames(data);
-        })
-      );
-
-      unsubscribers.push(
-        grandFinalsService.subscribe((data) => {
-          setGrandFinals(data);
-        })
-      );
-
-      // Fetch static data once on mount
-      const fetchStaticData = async () => {
-        try {
-          const [championsData] = await Promise.all([
-            championsService.getAll()
-          ]);
-          setChampions(championsData);
-        } catch (err) {
-          console.error('Failed to fetch static data:', err);
+      // Use subscription manager to optimize real-time listeners
+      const cleanup = subscriptionManager.subscribeToMultiple([
+        {
+          key: 'games',
+          subscribe: gamesService.subscribe,
+          callback: (data: Game[]) => setGames(data)
+        },
+        {
+          key: 'teamGames',
+          subscribe: allUnifiedTeamGamesService.subscribe,
+          callback: (data: UnifiedTeamGame[]) => setUnifiedTeamGames(data)
+        },
+        {
+          key: 'grandFinals',
+          subscribe: grandFinalsService.subscribe,
+          callback: (data: GrandFinalsMatch[]) => setGrandFinals(data)
+        },
+        {
+          key: 'config',
+          subscribe: configService.subscribe,
+          callback: (config) => {
+            setSlideDuration(config.slideDuration);
+            setAdvancedSlideTiming(config.advancedSlideTiming);
+            setVignetteSettings(config.vignetteSettings);
+          }
         }
-      };
+      ]);
 
-      fetchStaticData();
-
-      // Unified config subscription (replaces 3 separate subscriptions)
-      unsubscribers.push(
-        configService.subscribe((config) => {
-          setSlideDuration(config.slideDuration);
-          setAdvancedSlideTiming(config.advancedSlideTiming);
-          setVignetteSettings(config.vignetteSettings);
-        })
-      );
+      // Fetch static data with caching
+      fetchChampionsData();
 
       setLoading(false);
+
+      return () => {
+        cleanup();
+      };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');
       setLoading(false);
     }
+  }, [fetchChampionsData]);
 
-    return () => {
-      unsubscribers.forEach(unsubscribe => unsubscribe());
-    };
-  }, []);
+  // Manual refresh function for champions
+  const refreshChampions = useCallback(async () => {
+    await fetchChampionsData(true); // Force refresh
+  }, [fetchChampionsData]);
 
   // Game operations
   const updateScore = useCallback(async (gameId: string, cluster: string, score: number) => {
@@ -204,11 +232,13 @@ export function useFirestoreData(): FirestoreDataStore {
     try {
       const adminInfo = getAdminInfo();
       await gamesService.retire(gameId, adminInfo.email, adminInfo.name);
+      // Refresh champions since retiring a game creates a new champion
+      await fetchChampionsData(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to retire game');
       throw err;
     }
-  }, [getAdminInfo]);
+  }, [getAdminInfo, fetchChampionsData]);
 
   const unretireGame = useCallback(async (gameId: string) => {
     try {
@@ -350,7 +380,7 @@ export function useFirestoreData(): FirestoreDataStore {
   const updateTeamGameScore = useCallback(async (gameId: string, teamName: string, points: number) => {
     try {
       const adminInfo = getAdminInfo();
-      await allUnifiedTeamGamesService.updateTeamScore(gameId, teamName, points, getAdminInfo().email, getAdminInfo().name);
+      await allUnifiedTeamGamesService.updateTeamScore(gameId, teamName, points, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update team game score');
       throw err;
@@ -360,7 +390,7 @@ export function useFirestoreData(): FirestoreDataStore {
   const removeTeamGame = useCallback(async (teamGameId: string) => {
     try {
       const adminInfo = getAdminInfo();
-      await allUnifiedTeamGamesService.archiveGame(teamGameId, getAdminInfo().email, getAdminInfo().name);
+      await allUnifiedTeamGamesService.archiveGame(teamGameId, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove team game');
       throw err;
@@ -370,7 +400,7 @@ export function useFirestoreData(): FirestoreDataStore {
   const deleteTeamGame = useCallback(async (teamGameId: string) => {
     try {
       const adminInfo = getAdminInfo();
-      await allUnifiedTeamGamesService.deleteGame(teamGameId, getAdminInfo().email, getAdminInfo().name);
+      await allUnifiedTeamGamesService.deleteGame(teamGameId, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete team game');
       throw err;
@@ -503,7 +533,7 @@ export function useFirestoreData(): FirestoreDataStore {
       }
     }, [getAdminInfo]),
     
-    updateUnifiedGameStatus: useCallback(async (gameId: string, status: 'active' | 'archived') => {
+    updateUnifiedGameStatus: useCallback(async (gameId: string, status: GameStatus) => {
       try {
         const adminInfo = getAdminInfo();
         await allUnifiedTeamGamesService.updateGameStatus(gameId, status, adminInfo.email, adminInfo.name);
@@ -528,6 +558,9 @@ export function useFirestoreData(): FirestoreDataStore {
     updateSlideDuration,
     updateAdvancedSlideTiming,
     updateVignetteSettings,
-    updateConfig
+    updateConfig,
+    
+    // Static data refresh
+    refreshChampions
   };
 }

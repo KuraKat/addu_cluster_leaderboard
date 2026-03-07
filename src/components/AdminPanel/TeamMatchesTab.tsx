@@ -97,6 +97,12 @@ export default function TeamMatchesTab({
   // Handle creating versus match when both teams are ready
   const handleCreateVersusMatch = () => {
     if (newMatchTitle.trim() && teamAData && teamBData) {
+      // Validate that team names are different
+      if (teamAData.name.trim() === teamBData.name.trim()) {
+        alert('Team A and Team B must have different names');
+        return;
+      }
+      
       onCreateVersusMatch(
         newMatchTitle.trim(),
         teamAData,

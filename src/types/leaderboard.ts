@@ -138,7 +138,10 @@ teams: {
   isWinner: boolean;    // Default false, used if isVersus
 }[];
 
-status: "active" | "archived" | "retired";
+status: "active" | "archived" | "retired";  // Standardized status values
 createdAt: Timestamp;
 updatedAt: Timestamp;
 }
+
+// Export status type for use throughout the codebase
+export type GameStatus = "active" | "archived" | "retired";
