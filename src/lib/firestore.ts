@@ -16,7 +16,8 @@ import {
   writeBatch,
   addDoc,
   arrayUnion,
-  arrayRemove
+  arrayRemove,
+  runTransaction
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { 
@@ -32,6 +33,7 @@ import {
   AdvancedSlideTiming,
   VignetteSettings
 } from "@/types/leaderboard";
+import { AdminLogAction } from "@/types/admin";
 
 // Collection references
 const GAMES_COLLECTION = 'games';
@@ -75,25 +77,42 @@ export const gamesService = {
     });
   },
 
-  // Update game scores
+  // Update game scores with transaction
   async updateScore(gameId: string, cluster: ClusterName, score: number, adminEmail: string, adminName: string) {
     const gameRef = doc(db, GAMES_COLLECTION, gameId);
     
-    // Update game directly without reading first
-    await updateDoc(gameRef, {
-      [`scores.${cluster}`]: score,
-      updatedAt: serverTimestamp()
-    });
+    // Use transaction to prevent race conditions
+    await runTransaction(db, async (transaction) => {
+      const gameDoc = await transaction.get(gameRef);
+      
+      if (!gameDoc.exists()) {
+        throw new Error('Game not found');
+      }
+      
+      const game = gameDoc.data() as Game;
+      const oldScore = game.scores[cluster] || 0;
+      
+      // Update the game score
+      transaction.update(gameRef, {
+        [`scores.${cluster}`]: score,
+        updatedAt: serverTimestamp()
+      });
 
-    // Create admin log (note: we can't calculate diff without reading, so we'll log the new score)
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'score_update',
-      details: `Updated ${cluster} score to ${score}`,
-      timestamp: serverTimestamp(),
-      approved: true // Direct updates are auto-approved
+      // Create admin log with proper diff information
+      const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+      transaction.set(adminLogRef, {
+        adminEmail,
+        adminName,
+        action: AdminLogAction.SCORE_UPDATE,
+        details: `Updated ${cluster} score from ${oldScore} to ${score} in game: ${game.name}`,
+        gameId,
+        gameName: game.name,
+        cluster,
+        oldScore,
+        newScore: score,
+        timestamp: serverTimestamp(),
+        approved: true // Direct updates are auto-approved
+      });
     });
   },
 
@@ -108,8 +127,7 @@ export const gamesService = {
     };
 
     // Initialize scores for all clusters
-    const allClusters: ClusterName[] = ["Salamanca", "Manresa", "Jerusalem", "Paris", "Rome", "Montserrat", "Pamplona", "Barcelona"];
-    allClusters.forEach(cluster => {
+    ALL_CLUSTERS.forEach(cluster => {
       newGame.scores[cluster] = 0;
     });
 
@@ -124,7 +142,7 @@ export const gamesService = {
     await setDoc(adminLogRef, {
       adminEmail,
       adminName,
-      action: 'game_create',
+      action: AdminLogAction.GAME_CREATE,
       details: `Created new game: ${name}`,
       timestamp: serverTimestamp(),
       approved: true
@@ -140,7 +158,7 @@ export const gamesService = {
     await setDoc(adminLogRef, {
       adminEmail,
       adminName,
-      action: 'game_delete',
+      action: AdminLogAction.GAME_DELETE,
       details: `Deleted game with ID: ${gameId}`,
       timestamp: serverTimestamp(),
       approved: true
@@ -157,8 +175,7 @@ export const gamesService = {
     const game = gameDoc.data() as Game;
 
     // Find the winning cluster
-    const allClusters: ClusterName[] = ["Salamanca", "Manresa", "Jerusalem", "Paris", "Rome", "Montserrat", "Pamplona", "Barcelona"];
-    const topCluster = allClusters.reduce((best, cluster) => 
+    const topCluster = ALL_CLUSTERS.reduce((best, cluster) => 
       (game.scores[cluster] || 0) > (game.scores[best] || 0) ? cluster : best
     );
 
@@ -183,8 +200,10 @@ export const gamesService = {
     await setDoc(adminLogRef, {
       adminEmail,
       adminName,
-      action: 'game_retire',
-      details: `Retired game: ${game.name}. Winner: ${topCluster}`,
+      action: AdminLogAction.GAME_RETIRE,
+      details: `Retired game: ${game.name}`,
+      gameId,
+      gameName: game.name,
       timestamp: serverTimestamp(),
       approved: true
     });

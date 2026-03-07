@@ -43,8 +43,8 @@ interface FirestoreDataStore {
   updateGameTop3: (gameId: string, showTop3: boolean) => Promise<void>;
 
   // Unified Team Game operations
-  createTeamGame: (title: string, teams: { name: string; clusters: ClusterName[] }[]) => Promise<string>;
-  createVersusMatch: (title: string, teamA: { name: string; clusters: ClusterName[] }, teamB: { name: string; clusters: ClusterName[] }, winnerPoints: number, loserPoints: number) => Promise<string>;
+  createTeamGame: (title: string, teams: { name: string; clusters: ClusterName[] }[]) => Promise<void>;
+  createVersusMatch: (title: string, teamA: { name: string; clusters: ClusterName[] }, teamB: { name: string; clusters: ClusterName[] }, winnerPoints: number, loserPoints: number) => Promise<void>;
   setMatchWinner: (matchId: string, winnerTeamName: string) => Promise<void>;
   undoMatchWinner: (matchId: string) => Promise<void>;
   updateTeamGameScore: (gameId: string, teamName: string, points: number) => Promise<void>;
@@ -97,11 +97,14 @@ export function useFirestoreData(): FirestoreDataStore {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get admin info for logging
+  // Get admin info for logging with validation
   const getAdminInfo = useCallback(() => {
+    if (!user) {
+      throw new Error('User must be authenticated to perform admin actions');
+    }
     return {
-      email: user?.email || 'unknown@admin.com',
-      name: user?.displayName || user?.email || 'Unknown Admin'
+      email: user.email || 'unknown@admin.com',
+      name: user.displayName || user.email || 'Unknown Admin'
     };
   }, [user]);
 
@@ -430,14 +433,85 @@ export function useFirestoreData(): FirestoreDataStore {
     updateGameTop3,
     
     // Unified Team Game operations
-    createTeamGame: (title: string, teams: { name: string; clusters: ClusterName[] }[]) => allUnifiedTeamGamesService.createTeamGame(title, teams, getAdminInfo().email, getAdminInfo().name),
-    createVersusMatch: (title: string, teamA: { name: string; clusters: ClusterName[] }, teamB: { name: string; clusters: ClusterName[] }, winnerPoints: number, loserPoints: number) => allUnifiedTeamGamesService.createVersusMatch(title, teamA, teamB, winnerPoints, loserPoints, getAdminInfo().email, getAdminInfo().name),
-    setMatchWinner: (matchId: string, winnerTeamName: string) => allUnifiedTeamGamesService.setMatchWinner(matchId, winnerTeamName, getAdminInfo().email, getAdminInfo().name),
-    undoMatchWinner: (matchId: string) => allUnifiedTeamGamesService.undoMatchWinner(matchId, getAdminInfo().email, getAdminInfo().name),
-    updateTeamGameScore: (gameId: string, teamName: string, points: number) => allUnifiedTeamGamesService.updateTeamScore(gameId, teamName, points, getAdminInfo().email, getAdminInfo().name),
-    archiveGame: (gameId: string) => allUnifiedTeamGamesService.archiveGame(gameId, getAdminInfo().email, getAdminInfo().name),
-    deleteUnifiedGame: (gameId: string) => allUnifiedTeamGamesService.deleteGame(gameId, getAdminInfo().email, getAdminInfo().name),
-    updateUnifiedGameStatus: (gameId: string, status: 'active' | 'archived') => allUnifiedTeamGamesService.updateGameStatus(gameId, status, getAdminInfo().email, getAdminInfo().name),
+    createTeamGame: useCallback(async (title: string, teams: { name: string; clusters: ClusterName[] }[]) => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.createTeamGame(title, teams, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create team game');
+        throw err;
+      }
+    }, [getAdminInfo]),
+    
+    createVersusMatch: useCallback(async (title: string, teamA: { name: string; clusters: ClusterName[] }, teamB: { name: string; clusters: ClusterName[] }, winnerPoints: number, loserPoints: number) => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.createVersusMatch(title, teamA, teamB, winnerPoints, loserPoints, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to create versus match');
+        throw err;
+      }
+    }, [getAdminInfo]),
+    
+    setMatchWinner: useCallback(async (matchId: string, winnerTeamName: string) => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.setMatchWinner(matchId, winnerTeamName, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to set match winner');
+        throw err;
+      }
+    }, [getAdminInfo]),
+    
+    undoMatchWinner: useCallback(async (matchId: string) => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.undoMatchWinner(matchId, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to undo match winner');
+        throw err;
+      }
+    }, [getAdminInfo]),
+    
+    updateTeamGameScore: useCallback(async (gameId: string, teamName: string, points: number) => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.updateTeamScore(gameId, teamName, points, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update team game score');
+        throw err;
+      }
+    }, [getAdminInfo]),
+    
+    archiveGame: useCallback(async (gameId: string) => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.archiveGame(gameId, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to archive game');
+        throw err;
+      }
+    }, [getAdminInfo]),
+    
+    deleteUnifiedGame: useCallback(async (gameId: string) => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.deleteGame(gameId, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete game');
+        throw err;
+      }
+    }, [getAdminInfo]),
+    
+    updateUnifiedGameStatus: useCallback(async (gameId: string, status: 'active' | 'archived') => {
+      try {
+        const adminInfo = getAdminInfo();
+        await allUnifiedTeamGamesService.updateGameStatus(gameId, status, adminInfo.email, adminInfo.name);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update game status');
+        throw err;
+      }
+    }, [getAdminInfo]),
     unretireTeamGame,
     updateTeamGameVisibility,
     updateTeamGameTop3,

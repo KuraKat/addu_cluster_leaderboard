@@ -1,100 +1,11 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Archive } from "lucide-react";
-import { ALL_CLUSTERS } from "@/types/leaderboard";
+import { ALL_CLUSTERS, ClusterName } from "@/types/leaderboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-
-// Controlled Input Component
-function ControlledInput({ value, onChange, type = "text", disabled = false, ...props }: {
-  value: string | number;
-  onChange: (value: string | number) => void;
-  type?: string;
-  disabled?: boolean;
-  [key: string]: any;
-}) {
-  const [tempValue, setTempValue] = useState(value.toString());
-
-  // Sync tempValue with prop value when it changes (for increment/decrement updates)
-  useEffect(() => {
-    setTempValue(value.toString());
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (disabled) return;
-    setTempValue(e.target.value);
-  };
-
-  const handleBlur = () => {
-    if (disabled) return;
-    if (type === "number") {
-      const numValue = Number(tempValue) || 0;
-      if (numValue !== Number(value)) {
-        onChange(numValue);
-      }
-    } else {
-      if (tempValue !== value) {
-        onChange(tempValue);
-      }
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (disabled) return;
-    if (e.key === 'Enter') {
-      if (type === "number") {
-        const numValue = Number(tempValue) || 0;
-        if (numValue !== Number(value)) {
-          onChange(numValue);
-        }
-      } else {
-        if (tempValue !== value) {
-          onChange(tempValue);
-        }
-      }
-    }
-  };
-
-  return (
-    <Input
-      {...props}
-      value={tempValue}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
-      disabled={disabled}
-    />
-  );
-}
-
-interface GamesTabProps {
-  games: any;
-  teamGames: any;
-  incrementMode: boolean;
-  incrementAmount: number;
-  newGameName: string;
-  onNewGameNameChange: (value: string) => void;
-  onIncrementModeChange: (value: boolean) => void;
-  onIncrementAmountChange: (value: number) => void;
-  onAddGame: () => void;
-  onAddTeamGame: (title: string, teams: { name: string; clusters: string[] }[]) => void;
-  onUpdateScore: (gameId: string, cluster: string, score: number) => void;
-  onUpdateTeamGameScore: (gameId: string, teamName: string, points: number) => void;
-  onRetireGame: (gameId: string) => void;
-  onUnretireGame: (gameId: string) => void;
-  onRemoveGame: (gameId: string) => void;
-  onRetireUnifiedGame: (gameId: string) => void;
-  onArchiveUnifiedGame: (gameId: string) => void;
-  onUnretireTeamGame?: (gameId: string) => void;
-  onIncrement: (gameId: string, cluster: string) => void;
-  onDecrement: (gameId: string, cluster: string) => void;
-  onTeamGameIncrement: (gameId: string, team: string) => void;
-  onTeamGameDecrement: (gameId: string, team: string) => void;
-  onTop5Toggle: (gameId: string, checked: boolean) => void;
-  onTop3Toggle: (gameId: string, checked: boolean) => void;
-  onTeamGameTop3Toggle: (teamGameId: string, checked: boolean) => void;
-  onTeamGameTop5Toggle: (teamGameId: string, checked: boolean) => void;
-}
+import { ControlledInput } from "@/components/ui/controlled-input";
+import { GamesTabProps } from "@/types/props";
 
 export default function GamesTab({
   games,
@@ -161,7 +72,11 @@ export default function GamesTab({
   // Create the actual team game with all teams
   const handleCreateTeamGame = () => {
     if (createdTeams.length >= 2) {
-      onAddTeamGame(newGameName.trim() || "Team Game", createdTeams);
+      const typedTeams = createdTeams.map(team => ({
+        ...team,
+        clusters: team.clusters as ClusterName[]
+      }));
+      onAddTeamGame(newGameName.trim() || "Team Game", typedTeams);
       // Reset everything
       setCreatedTeams([]);
       setNewTeamName('');

@@ -1,16 +1,6 @@
 import { Settings, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-interface LogsTabProps {
-  adminLogs: any[];
-  games: any;
-  teamGames: any;
-  refreshLogs: () => Promise<void>;
-  onUpdateScore: (gameId: string, cluster: string, score: number) => Promise<void>;
-  onSetMatchWinner: (matchId: string, winnerTeamName: string) => Promise<void>;
-  onUpdateGameVisibility: (gameId: string, showTop5: boolean) => Promise<void>;
-  onUpdateGameTop3: (gameId: string, showTop3: boolean) => Promise<void>;
-}
+import { LogsTabProps } from "@/types/props";
 
 export default function LogsTab({
   adminLogs,
