@@ -42,7 +42,7 @@ export default function TeamsTab({
                   <div className="flex-1">
                     <div className="text-sm font-medium text-foreground">{team.name}</div>
                     <div className="text-xs text-muted-foreground">
-                      Clusters: {team.clusters.join(', ')}
+                      Clusters: {team.clusters?.join(', ') || 'None'}
                     </div>
                   </div>
                   <div className="text-sm font-bold text-primary">

@@ -15,9 +15,10 @@ export function useLeaderboardData() {
 
   // Standardized filtered data for slides
   const slideData = useMemo(() => {
-    // Active (non-archived) games with at least one non-zero score
+    // Active (non-archived, non-retired) games with at least one non-zero score
     const activeGames = games.filter((g) => 
       !g.archived && 
+      !g.retired && 
       Object.values(g.scores).some((s) => s > 0)
     );
 
@@ -42,7 +43,7 @@ export function useLeaderboardData() {
   // Champions from active games
   const activeChampions = champions.filter((c) => {
       const game = games.find(g => g.id === c.gameId);
-      return game && !game.archived;
+      return game && !game.archived && !game.retired;
     });
 
     return {
@@ -59,16 +60,16 @@ export function useLeaderboardData() {
 
   // Admin data (includes all items for management)
   const adminData = useMemo(() => {
-    const activeGames = games.filter((g) => !g.archived);
-    const archivedGames = games.filter((g) => g.archived);
+    const activeGames = games.filter((g) => !g.archived && !g.retired);
+    const archivedGames = games.filter((g) => g.archived || g.retired);
     const activeFinals = grandFinals.filter((f) => !f.archived);
     const archivedFinals = grandFinals.filter((f) => f.archived);
     
     // Filter unified games by type
     const activeTeamMatches = allUnifiedTeamGames.filter((m) => m.isVersus && m.status === 'active');
-    const archivedTeamMatches = allUnifiedTeamGames.filter((m) => m.isVersus && m.status === 'archived');
+    const archivedTeamMatches = allUnifiedTeamGames.filter((m) => m.isVersus && (m.status === 'archived' || m.status === 'retired'));
     const activeTeamGames = allUnifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'active');
-    const archivedTeamGames = allUnifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'archived');
+    const archivedTeamGames = allUnifiedTeamGames.filter((tg) => tg.isTeamGame && (tg.status === 'archived' || tg.status === 'retired'));
 
     return {
       games: {

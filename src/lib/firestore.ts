@@ -102,7 +102,7 @@ export const gamesService = {
       const game = gameDoc.data() as Game;
       const oldScore = game.scores[cluster] || 0;
       
-      // Update the game score
+      // Update the game score without version constraint
       transaction.update(gameRef, {
         [`scores.${cluster}`]: score,
         updatedAt: serverTimestamp()
@@ -180,44 +180,47 @@ export const gamesService = {
   // Retire game
   async retire(gameId: string, adminEmail: string, adminName: string): Promise<void> {
     const gameRef = doc(db, GAMES_COLLECTION, gameId);
-    const gameDoc = await getDoc(gameRef);
     
-    if (!gameDoc.exists()) throw new Error('Game not found');
-    
-    const game = gameDoc.data() as Game;
+    await runTransaction(db, async (transaction) => {
+      const gameDoc = await transaction.get(gameRef);
+      
+      if (!gameDoc.exists()) throw new Error('Game not found');
+      
+      const game = gameDoc.data() as Game;
 
-    // Find the winning cluster
-    const topCluster = ALL_CLUSTERS.reduce((best, cluster) => 
-      (game.scores[cluster] || 0) > (game.scores[best] || 0) ? cluster : best
-    );
+      // Find the winning cluster
+      const topCluster = ALL_CLUSTERS.reduce((best, cluster) => 
+        (game.scores[cluster] || 0) > (game.scores[best] || 0) ? cluster : best
+      );
 
-    // Create champion entry
-    const championRef = doc(collection(db, CHAMPIONS_COLLECTION));
-    await setDoc(championRef, {
-      gameId,
-      gameName: game.name,
-      cluster: topCluster,
-      score: game.scores[topCluster],
-      timestamp: serverTimestamp()
-    });
+      // Create champion entry
+      const championRef = doc(collection(db, CHAMPIONS_COLLECTION));
+      transaction.set(championRef, {
+        gameId,
+        gameName: game.name,
+        cluster: topCluster,
+        score: game.scores[topCluster],
+        timestamp: serverTimestamp()
+      });
 
-    // Retire the game
-    await updateDoc(gameRef, {
-      retired: true,
-      retiredAt: serverTimestamp()
-    });
+      // Retire the game
+      transaction.update(gameRef, {
+        retired: true,
+        retiredAt: serverTimestamp()
+      });
 
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: AdminLogAction.GAME_RETIRE,
-      details: `Retired game: ${game.name}`,
-      gameId,
-      gameName: game.name,
-      timestamp: serverTimestamp(),
-      approved: true
+      // Log the action
+      const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+      transaction.set(adminLogRef, {
+        adminEmail,
+        adminName,
+        action: AdminLogAction.GAME_RETIRE,
+        details: `Retired game: ${game.name}`,
+        gameId,
+        gameName: game.name,
+        timestamp: serverTimestamp(),
+        approved: true
+      });
     });
   },
 
@@ -333,14 +336,14 @@ export const clusterTeamMatchesService = {
     await allUnifiedTeamGamesService.deleteGame(matchId, adminEmail, adminName);
   },
 
-  // Archive a versus match
+  // Archive a versus match - Legacy method, use retire for new code
   async archive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await allUnifiedTeamGamesService.archiveGame(matchId, adminEmail, adminName);
+    await allUnifiedTeamGamesService.retireTeamGame(matchId, adminEmail, adminName);
   },
 
-  // Unarchive a versus match
+  // Unarchive a versus match - Legacy method, use unretire for new code
   async unarchive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await allUnifiedTeamGamesService.updateGameStatus(matchId, 'active', adminEmail, adminName);
+    await allUnifiedTeamGamesService.unretireTeamGame(matchId, adminEmail, adminName);
   }
 };
 
@@ -958,7 +961,7 @@ export const allUnifiedTeamGamesService = {
     });
   },
 
-  // Archive games (sets status to 'archived')
+  // Archive games (sets status to 'archived') - Legacy method, use retireTeamGame for new code
   async archiveGame(gameId: string, adminEmail: string, adminName: string): Promise<void> {
     const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
     await updateDoc(gameRef, {
@@ -973,6 +976,26 @@ export const allUnifiedTeamGamesService = {
       adminName,
       action: 'game_archive',
       details: `Archived game: ${gameId}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Retire team games (sets status to 'retired') - Preferred method
+  async retireTeamGame(gameId: string, adminEmail: string, adminName: string): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    await updateDoc(gameRef, {
+      status: 'retired',
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: AdminLogAction.TEAM_GAME_RETIRE,
+      details: `Retired team game: ${gameId}`,
       timestamp: serverTimestamp(),
       approved: true
     });
@@ -1012,7 +1035,7 @@ export const allUnifiedTeamGamesService = {
     });
   },
 
-  // Unarchive games (sets status to 'active' - equivalent to unretire)
+  // Unarchive games (sets status to 'active') - Legacy method, use unretireTeamGame for new code
   async unarchiveGame(gameId: string, adminEmail: string, adminName: string): Promise<void> {
     const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
     await updateDoc(gameRef, {
@@ -1027,6 +1050,26 @@ export const allUnifiedTeamGamesService = {
       adminName,
       action: 'game_unarchive',
       details: `Unarchived game: ${gameId}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Unretire team games (sets status to 'active') - Preferred method
+  async unretireTeamGame(gameId: string, adminEmail: string, adminName: string): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    await updateDoc(gameRef, {
+      status: 'active',
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: AdminLogAction.TEAM_GAME_UNRETIRE,
+      details: `Unretired team game: ${gameId}`,
       timestamp: serverTimestamp(),
       approved: true
     });

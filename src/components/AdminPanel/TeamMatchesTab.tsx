@@ -22,7 +22,7 @@ interface TeamMatchesTabProps {
   onSetMatchWinner: (matchId: string, winnerTeamName: string) => void;
   onArchiveUnifiedGame: (gameId: string) => void;
   onDeleteUnifiedGame: (gameId: string) => void;
-  onUpdateMatchStatus: (matchId: string, status: 'active' | 'archived') => void;
+  onUpdateMatchStatus: (matchId: string, status: 'active' | 'archived' | 'retired') => void;
   onCreateVersusMatch: (title: string, teamA: { name: string; clusters: string[] }, teamB: { name: string; clusters: string[] }) => void;
 }
 
@@ -47,7 +47,7 @@ export default function TeamMatchesTab({
   onCreateVersusMatch
 }: TeamMatchesTabProps) {
   const activeMatches = clusterTeamMatches.all.filter((game: any) => game.isVersus && game.status === 'active');
-  const archivedMatches = clusterTeamMatches.all.filter((game: any) => game.isVersus && game.status === 'archived');
+  const archivedMatches = clusterTeamMatches.all.filter((game: any) => game.isVersus && (game.status === 'archived' || game.status === 'retired'));
   
   // Extract unique teams from existing games
   const existingTeams = [...new Map(
@@ -318,9 +318,9 @@ export default function TeamMatchesTab({
               />
               <div className="flex gap-2">
                 <button 
-                  onClick={() => onUpdateMatchStatus(match.id, match.status === 'active' ? 'archived' : 'active')} 
+                  onClick={() => onUpdateMatchStatus(match.id, match.status === 'active' ? 'retired' : 'active')} 
                   className="text-muted-foreground hover:text-yellow-500 transition-colors" 
-                  title="Archive"
+                  title="Retire"
                 >
                   <Archive className="w-4 h-4" />
                 </button>
@@ -341,7 +341,7 @@ export default function TeamMatchesTab({
               <span className="text-sm text-muted-foreground">Active in slides</span>
               <Switch 
                 checked={match.status === 'active'} 
-                onCheckedChange={(checked) => onUpdateMatchStatus(match.id, checked ? 'active' : 'archived')} 
+                onCheckedChange={(checked) => onUpdateMatchStatus(match.id, checked ? 'active' : 'retired')} 
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -396,10 +396,10 @@ export default function TeamMatchesTab({
         );
       })}
 
-      {/* Archived Team Matches */}
+      {/* Archived/Retired Team Matches */}
       {archivedMatches.length > 0 && (
         <>
-          <h3 className="font-display text-sm font-bold text-muted-foreground mt-8 mb-4 tracking-wider">ARCHIVED MATCHES</h3>
+          <h3 className="font-display text-sm font-bold text-muted-foreground mt-8 mb-4 tracking-wider">RETIRED MATCHES</h3>
           <div className="space-y-3">
             {archivedMatches.map((match: any) => {
               const teamA = match.teams[0];
@@ -417,7 +417,7 @@ export default function TeamMatchesTab({
                     <button 
                       onClick={() => onUpdateMatchStatus(match.id, 'active')} 
                       className="text-muted-foreground hover:text-green-500 transition-colors" 
-                      title="Reactivate"
+                      title="Unretire"
                     >
                       <Archive className="w-4 h-4" />
                     </button>

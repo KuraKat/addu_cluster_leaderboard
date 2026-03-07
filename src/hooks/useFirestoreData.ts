@@ -114,6 +114,15 @@ export function useFirestoreData(): FirestoreDataStore {
       throw new Error(ERROR_MESSAGES.AUTH_REQUIRED);
     }
     
+    // Allow anonymous users in development mode
+    const isDevelopment = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (isDevelopment && user.isAnonymous) {
+      return {
+        email: 'anonymous@localhost',
+        name: 'Anonymous Admin'
+      };
+    }
+    
     if (!user.email) {
       throw new Error(ERROR_MESSAGES.ACCESS_DENIED + ': User email is required for admin actions');
     }
@@ -122,11 +131,16 @@ export function useFirestoreData(): FirestoreDataStore {
     const adminEmails = [
       'admin@addu.org',
       'evan@addu.org',
+      'admin@addu.edu.ph',
+      'evan@addu.edu.ph',
+      'etoledo@addu.edu.ph',
       // Add other admin emails here
     ];
     
     const userEmail = user.email.toLowerCase();
-    const isAdmin = adminEmails.includes(userEmail) || userEmail.endsWith('@addu.org');
+    const isAdmin = adminEmails.includes(userEmail) || 
+                   userEmail.endsWith('@addu.org') || 
+                   userEmail.endsWith('@addu.edu.ph');
     
     if (!isAdmin) {
       throw new Error(ERROR_MESSAGES.ACCESS_DENIED);
@@ -412,7 +426,7 @@ export function useFirestoreData(): FirestoreDataStore {
   const removeTeamGame = useCallback(async (teamGameId: string) => {
     try {
       const adminInfo = getAdminInfo();
-      await allUnifiedTeamGamesService.archiveGame(teamGameId, adminInfo.email, adminInfo.name);
+      await allUnifiedTeamGamesService.retireTeamGame(teamGameId, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove team game');
       throw err;
@@ -432,7 +446,7 @@ export function useFirestoreData(): FirestoreDataStore {
   const unretireTeamGame = useCallback(async (teamGameId: string) => {
     try {
       const adminInfo = getAdminInfo();
-      await allUnifiedTeamGamesService.unarchiveGame(teamGameId, adminInfo.email, adminInfo.name);
+      await allUnifiedTeamGamesService.unretireTeamGame(teamGameId, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to unretire team game');
       throw err;
@@ -538,7 +552,7 @@ export function useFirestoreData(): FirestoreDataStore {
     archiveGame: useCallback(async (gameId: string) => {
       try {
         const adminInfo = getAdminInfo();
-        await allUnifiedTeamGamesService.archiveGame(gameId, adminInfo.email, adminInfo.name);
+        await allUnifiedTeamGamesService.retireTeamGame(gameId, adminInfo.email, adminInfo.name);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to archive game');
         throw err;

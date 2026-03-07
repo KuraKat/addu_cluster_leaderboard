@@ -224,7 +224,7 @@ export default function AdminPanel() {
                     onUnretireGame={unretireGame}
                     onRemoveGame={removeGame}
                     onRetireUnifiedGame={archiveUnifiedGame}
-                    onArchiveUnifiedGame={archiveUnifiedGame}
+                    onDeleteUnifiedGame={deleteUnifiedGame}
                     onUnretireTeamGame={handleUnretireTeamGame}
                     onIncrement={handleIncrement}
                     onDecrement={handleDecrement}

@@ -24,7 +24,7 @@ export default function GamesTab({
   onUnretireGame,
   onRemoveGame,
   onRetireUnifiedGame,
-  onArchiveUnifiedGame,
+  onDeleteUnifiedGame,
   onUnretireTeamGame,
   onIncrement,
   onDecrement,
@@ -38,6 +38,37 @@ export default function GamesTab({
   // Local state for team creation
   const [newTeamName, setNewTeamName] = useState('');
   const [selectedClusters, setSelectedClusters] = useState<string[]>([]);
+  const [loadingActions, setLoadingActions] = useState<Set<string>>(new Set());
+
+  const handleRetireGame = async (gameId: string) => {
+    if (loadingActions.has(gameId)) return;
+    
+    setLoadingActions(prev => new Set(prev).add(gameId));
+    try {
+      await onRetireGame(gameId);
+    } finally {
+      setLoadingActions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(gameId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleUnretireGame = async (gameId: string) => {
+    if (loadingActions.has(gameId)) return;
+    
+    setLoadingActions(prev => new Set(prev).add(gameId));
+    try {
+      await onUnretireGame(gameId);
+    } finally {
+      setLoadingActions(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(gameId);
+        return newSet;
+      });
+    }
+  };
   const [createdTeams, setCreatedTeams] = useState<{ name: string; clusters: string[] }[]>([]);
   const [clusterMode, setClusterMode] = useState(false); // NEW: Cluster Mode toggle
 
@@ -272,7 +303,12 @@ export default function GamesTab({
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-body text-lg font-semibold text-foreground">{game.name}</h3>
               <div className="flex gap-2">
-                <button onClick={() => onRetireGame(game.id)} className="text-muted-foreground hover:text-yellow-500 transition-colors" title="Retire event">
+                <button 
+                  onClick={() => handleRetireGame(game.id)} 
+                  disabled={loadingActions.has(game.id)}
+                  className="text-muted-foreground hover:text-yellow-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                  title="Retire event"
+                >
                   <Archive className="w-4 h-4" />
                 </button>
                 <button onClick={() => onRemoveGame(game.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete">
@@ -335,7 +371,7 @@ export default function GamesTab({
                 <button onClick={() => onRetireUnifiedGame(teamGame.id)} className="text-muted-foreground hover:text-yellow-500 transition-colors" title="Retire event">
                   <Archive className="w-4 h-4" />
                 </button>
-                <button onClick={() => onArchiveUnifiedGame(teamGame.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete">
+                <button onClick={() => onDeleteUnifiedGame(teamGame.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -406,7 +442,12 @@ export default function GamesTab({
                   <span className="px-2 py-1 bg-red-500/20 text-red-500 text-xs font-medium rounded">Game</span>
                 </span>
                 <div className="flex gap-2">
-                  <button onClick={() => onUnretireGame(game.id)} className="text-muted-foreground hover:text-green-500 transition-colors" title="Reactivate">
+                  <button 
+                    onClick={() => handleUnretireGame(game.id)} 
+                    disabled={loadingActions.has(game.id)}
+                    className="text-muted-foreground hover:text-green-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
+                    title="Reactivate"
+                  >
                     <Archive className="w-4 h-4" />
                   </button>
                   <button onClick={() => onRemoveGame(game.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete permanently">
@@ -434,7 +475,7 @@ export default function GamesTab({
                   <button onClick={() => onUnretireTeamGame?.(teamGame.id)} className="text-muted-foreground hover:text-green-500 transition-colors" title="Reactivate">
                     <Archive className="w-4 h-4" />
                   </button>
-                  <button onClick={() => onArchiveUnifiedGame(teamGame.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete permanently">
+                  <button onClick={() => onDeleteUnifiedGame(teamGame.id)} className="text-muted-foreground hover:text-destructive transition-colors" title="Delete permanently">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

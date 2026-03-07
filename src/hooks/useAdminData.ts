@@ -13,17 +13,26 @@ interface AdminDataStore {
 
 // Helper function to check if user has admin privileges
 const hasAdminRole = (user: any): boolean => {
-  if (!user || !user.email) return false;
+  if (!user) return false;
+  
+  // Allow anonymous users in development mode
+  const isDevelopment = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  if (isDevelopment && user.isAnonymous) {
+    return true;
+  }
+  
+  if (!user.email) return false;
   
   // Check email domain or specific admin emails
   const adminEmails = [
-    'admin@addu.org',
-    'evan@addu.org',
+    'admin@addu.edu.ph',
+    'etoledo@addu.edu.ph',
     // Add other admin emails here
   ];
   
   const userEmail = user.email.toLowerCase();
-  return adminEmails.includes(userEmail) || userEmail.endsWith('@addu.org');
+  return adminEmails.includes(userEmail) || 
+         userEmail.endsWith('@addu.edu.ph');
 };
 
 export function useAdminData(): AdminDataStore {

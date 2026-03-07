@@ -11,8 +11,10 @@ export function useAuth() {
       setUser(user);
       setLoading(false);
       
-      // Only try anonymous sign in if we need admin features
-      // For now, allow public access without authentication
+      // Automatically sign in anonymously if no user is authenticated
+      if (!user) {
+        signInAnonymouslyIfNeeded();
+      }
     });
 
     return () => unsubscribe();

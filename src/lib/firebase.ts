@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut, setPersistence, inMemoryPersistence, signInAnonymously } from 'firebase/auth';
+import { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut, setPersistence, browserLocalPersistence, signInAnonymously } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { connectFirestoreEmulator } from "firebase/firestore";
 
@@ -25,8 +25,8 @@ if (location.hostname === "localhost") {
   connectAuthEmulator(auth, "http://127.0.0.1:9099");
 }
 
-// Set auth persistence to none (logout on refresh)
-setPersistence(auth, inMemoryPersistence);
+// Set auth persistence to local (persist across browser sessions)
+setPersistence(auth, browserLocalPersistence);
 
 // Auto sign in anonymously for public users
 export const signInAnonymouslyIfNeeded = async () => {

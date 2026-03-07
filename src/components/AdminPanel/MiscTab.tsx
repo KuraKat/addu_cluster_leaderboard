@@ -85,13 +85,13 @@ export default function MiscTab({
     <div className="space-y-6">
       {/* Version Information - Always at top */}
       <div className="glass-surface rounded-lg p-4 space-y-3">
-        <h3 className="font-body text-sm font-semibold text-foreground">Version 2.0.11</h3>
+        <h3 className="font-body text-sm font-semibold text-foreground">Version 2.0.13</h3>
         <div className="flex items-center justify-between">
           <div>
             <label className="text-sm text-muted-foreground">Application Version</label>
             <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
           </div>
-          <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v2.0.11</div>
+          <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v2.0.13</div>
         </div>
       </div>
 

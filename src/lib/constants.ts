@@ -68,6 +68,8 @@ export const SUCCESS_MESSAGES = {
   GAME_RETIRED: 'Game retired successfully',
   GAME_UNRETIRED: 'Game unretired successfully',
   TEAM_GAME_CREATED: 'Team game created successfully',
+  TEAM_GAME_RETIRED: 'Team game retired successfully',
+  TEAM_GAME_UNRETIRED: 'Team game unretired successfully',
   VERSUS_MATCH_CREATED: 'Versus match created successfully',
   MATCH_WINNER_SET: 'Match winner set successfully',
   MATCH_WINNER_UNDONE: 'Match winner undone successfully',

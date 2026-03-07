@@ -26,7 +26,7 @@ export interface GamesTabProps {
   onUnretireGame: (gameId: string) => Promise<void>;
   onRemoveGame: (gameId: string) => Promise<void>;
   onRetireUnifiedGame: (gameId: string) => Promise<void>;
-  onArchiveUnifiedGame: (gameId: string) => Promise<void>;
+  onDeleteUnifiedGame: (gameId: string) => Promise<void>;
   onUnretireTeamGame: (gameId: string) => Promise<void>;
   onIncrement: (gameId: string, cluster: ClusterName) => void;
   onDecrement: (gameId: string, cluster: ClusterName) => void;

@@ -10,6 +10,8 @@ export enum AdminLogAction {
   TEAM_GAME_DELETE = 'team_game_delete',
   TEAM_GAME_ARCHIVE = 'team_game_archive',
   TEAM_GAME_UNARCHIVE = 'team_game_unarchive',
+  TEAM_GAME_RETIRE = 'team_game_retire',
+  TEAM_GAME_UNRETIRE = 'team_game_unretire',
   TEAM_GAME_SCORE_UPDATE = 'team_game_score_update',
   TEAM_MATCH_CREATE = 'team_match_create',
   TEAM_MATCH_DELETE = 'team_match_delete',
