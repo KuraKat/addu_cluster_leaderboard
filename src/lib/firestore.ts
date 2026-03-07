@@ -14,7 +14,9 @@ import {
   serverTimestamp,
   Timestamp,
   writeBatch,
-  addDoc
+  addDoc,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { 
@@ -76,32 +78,23 @@ export const gamesService = {
   // Update game scores
   async updateScore(gameId: string, cluster: ClusterName, score: number, adminEmail: string, adminName: string) {
     const gameRef = doc(db, GAMES_COLLECTION, gameId);
-    const gameDoc = await getDoc(gameRef);
     
-    if (!gameDoc.exists()) throw new Error('Game not found');
-    
-    const oldGame = gameDoc.data() as Game;
-    const oldScore = oldGame.scores[cluster] || 0;
-    const diff = score - oldScore;
-
-    // Update the game
+    // Update game directly without reading first
     await updateDoc(gameRef, {
       [`scores.${cluster}`]: score,
       updatedAt: serverTimestamp()
     });
 
-    // Create admin log
-    if (diff !== 0) {
-      const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-      await setDoc(adminLogRef, {
-        adminEmail,
-        adminName,
-        action: 'score_update',
-        details: `Updated ${cluster} score in ${oldGame.name} from ${oldScore} to ${score}`,
-        timestamp: serverTimestamp(),
-        approved: true // Direct updates are auto-approved
-      });
-    }
+    // Create admin log (note: we can't calculate diff without reading, so we'll log the new score)
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'score_update',
+      details: `Updated ${cluster} score to ${score}`,
+      timestamp: serverTimestamp(),
+      approved: true // Direct updates are auto-approved
+    });
   },
 
   // Create new game
@@ -259,13 +252,13 @@ export const gamesService = {
 export const clusterTeamMatchesService = {
   async getAll(): Promise<UnifiedTeamGame[]> {
     // Return only versus matches from unified system
-    const allGames = await unifiedTeamGamesService.getAll();
+    const allGames = await allUnifiedTeamGamesService.getAll();
     return allGames.filter(game => game.isVersus);
   },
 
   subscribe(callback: (matches: UnifiedTeamGame[]) => void) {
     // Subscribe to versus matches from unified system
-    return unifiedTeamGamesService.subscribe((allGames) => {
+    return allUnifiedTeamGamesService.subscribe((allGames) => {
       const versusMatches = allGames.filter(game => game.isVersus);
       callback(versusMatches);
     });
@@ -275,12 +268,12 @@ export const clusterTeamMatchesService = {
   async create(title: string, teamAName: string, teamBName: string, winningPoints: number, losingPoints: number, adminEmail: string, adminName: string): Promise<void> {
     const unifiedTeamA = { name: teamAName, clusters: [] };
     const unifiedTeamB = { name: teamBName, clusters: [] };
-    await unifiedTeamGamesService.createVersusMatch(title, unifiedTeamA, unifiedTeamB, winningPoints, losingPoints, adminEmail, adminName);
+    await allUnifiedTeamGamesService.createVersusMatch(title, unifiedTeamA, unifiedTeamB, winningPoints, losingPoints, adminEmail, adminName);
   },
 
   // Set winner for a versus match (converts A/B to team winner)
   async setWinner(matchId: string, winner: "A" | "B", adminEmail: string, adminName: string): Promise<void> {
-    const game = await unifiedTeamGamesService.getAll();
+    const game = await allUnifiedTeamGamesService.getAll();
     const targetGame = game.find(g => g.id === matchId);
     if (!targetGame || !targetGame.isVersus) {
       throw new Error('Match not found or not a versus match');
@@ -289,27 +282,27 @@ export const clusterTeamMatchesService = {
     // Determine which team name corresponds to A/B
     const winnerTeamName = winner === "A" ? targetGame.teams[0].name : targetGame.teams[1].name;
     
-    await unifiedTeamGamesService.setMatchWinner(matchId, winnerTeamName, adminEmail, adminName);
+    await allUnifiedTeamGamesService.setMatchWinner(matchId, winnerTeamName, adminEmail, adminName);
   },
 
   // Undo winner (clear all winner flags)
   async undoWinner(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await unifiedTeamGamesService.undoMatchWinner(matchId, adminEmail, adminName);
+    await allUnifiedTeamGamesService.undoMatchWinner(matchId, adminEmail, adminName);
   },
 
   // Delete a versus match
   async delete(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await unifiedTeamGamesService.deleteGame(matchId, adminEmail, adminName);
+    await allUnifiedTeamGamesService.deleteGame(matchId, adminEmail, adminName);
   },
 
   // Archive a versus match
   async archive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await unifiedTeamGamesService.archiveGame(matchId, adminEmail, adminName);
+    await allUnifiedTeamGamesService.archiveGame(matchId, adminEmail, adminName);
   },
 
   // Unarchive a versus match
   async unarchive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await unifiedTeamGamesService.updateGameStatus(matchId, 'active', adminEmail, adminName);
+    await allUnifiedTeamGamesService.updateGameStatus(matchId, 'active', adminEmail, adminName);
   }
 };
 
@@ -507,7 +500,7 @@ export const TEAM_GAMES_COLLECTION = 'teamGames';
 
 
 // NEW: Unified Team Games Service (replaces teamGames + clusterTeamMatches)
-export const unifiedTeamGamesService = {
+export const allUnifiedTeamGamesService = {
   async getAll(): Promise<UnifiedTeamGame[]> {
     const snapshot = await getDocs(collection(db, TEAM_GAMES_COLLECTION));
     return snapshot.docs.map(doc => ({

@@ -23,11 +23,10 @@ export default function AdminPanel() {
   const { adminData, getClusterLogoPath } = useLeaderboardData();
   const { adminLogs, refreshLogs } = useAdminData();
   const { 
-    vignetteSettings, 
-    updateVignetteSettings,
+    config,
+    updateConfig,
     updateScore, addGame, removeGame, retireGame, unretireGame, updateGameVisibility, updateGameTop3,
     addGrandFinals, removeGrandFinals, updateGrandFinals, archiveGrandFinals, unarchiveGrandFinals,
-    slideDuration, updateSlideDuration, advancedSlideTiming, updateAdvancedSlideTiming,
     createTeamGame, createVersusMatch, setMatchWinner, updateTeamGameScore, archiveGame: archiveUnifiedGame, deleteUnifiedGame, updateUnifiedGameStatus,
     unretireTeamGame, updateTeamGameVisibility, updateTeamGameTop3,
   } = useFirestoreData();
@@ -297,12 +296,8 @@ export default function AdminPanel() {
 
                 {tab === "misc" && (
                   <MiscTab
-                    vignetteSettings={vignetteSettings}
-                    slideDuration={slideDuration}
-                    advancedSlideTiming={advancedSlideTiming}
-                    onUpdateVignetteSettings={updateVignetteSettings}
-                    onUpdateSlideDuration={updateSlideDuration}
-                    onUpdateAdvancedSlideTiming={updateAdvancedSlideTiming}
+                    config={config}
+                    onUpdateConfig={updateConfig}
                     onLogout={logout}
                   />
                 )}

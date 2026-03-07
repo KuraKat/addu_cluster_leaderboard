@@ -29,11 +29,6 @@ export function useAdminData(): AdminDataStore {
     }
   }, []);
 
-  // Fetch logs once when component mounts
-  useEffect(() => {
-    refreshLogs();
-  }, [refreshLogs]);
-
   return {
     adminLogs,
     loading,

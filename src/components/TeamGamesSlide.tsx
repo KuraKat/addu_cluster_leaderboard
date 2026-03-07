@@ -212,7 +212,7 @@ export default function TeamGamesSlide({ teamGame }: { teamGame: UnifiedTeamGame
                                   initial={{ opacity: 0, y: -5 }}
                                   animate={{ opacity: 1, y: 0 }}
                                   transition={{ delay: 0.2 + i * 0.1, duration: 0.5 }}
-                                  className={`font-display text-xs md:text-sm font-bold ${config?.color || 'text-blue-500'}`}
+                                  className={`font-display text-xs md:text-sm font-bold text-white`}
                                 >
                                   {cluster}
                                 </motion.span>

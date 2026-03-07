@@ -199,20 +199,8 @@ export default function GamesTab({
         </div>
       </div>
 
-      {/* Cluster Mode Toggle */}
-      <div className="flex items-center justify-between mb-6 p-4 bg-blue-500/20 rounded-lg border-2 border-blue-500/50">
-        <div>
-          <span className="text-sm font-medium text-foreground">Cluster Mode</span>
-          <p className="text-xs text-muted-foreground">Create team games with clusters instead of regular games</p>
-        </div>
-        <Switch 
-          checked={clusterMode} 
-          onCheckedChange={setClusterMode} 
-        />
-      </div>
-
       {/* Game Creation Card */}
-      <div className={`glass-surface rounded-lg p-6 mb-6 ${clusterMode ? 'border-2 border-blue-500/50' : ''}`}>
+      <div className="glass-surface rounded-lg p-6 mb-6">
         <div className="space-y-4">
           {/* Game Name Input */}
           <div className="flex gap-2">
@@ -220,7 +208,7 @@ export default function GamesTab({
               value={newGameName} 
               onChange={(e) => onNewGameNameChange(e.target.value)} 
               placeholder={clusterMode ? "Team game name..." : "New game name..."} 
-              className={`bg-muted/50 border-border flex-1 ${clusterMode ? 'border-blue-500/50' : ''}`} 
+              className="bg-muted/50 border-border flex-1" 
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   if (clusterMode) {
@@ -247,13 +235,17 @@ export default function GamesTab({
             </Button>
           </div>
 
-          {/* Show mode indicator */}
-          {clusterMode && (
-            <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
-              <div className="text-sm font-medium text-blue-500">Cluster Mode Active</div>
-              <div className="text-xs text-muted-foreground">Create teams below to form a team game</div>
+          {/* Cluster Mode Toggle */}
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+            <div>
+              <span className="text-sm font-medium text-foreground">Cluster Mode</span>
+              <p className="text-xs text-muted-foreground">Create team games with clusters instead of regular games</p>
             </div>
-          )}
+            <Switch 
+              checked={clusterMode} 
+              onCheckedChange={setClusterMode} 
+            />
+          </div>
 
           {/* Show team creation UI only in cluster mode */}
           {clusterMode && (

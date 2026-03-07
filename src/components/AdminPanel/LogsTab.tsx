@@ -37,7 +37,7 @@ export default function LogsTab({
         </Button>
       </div>
       {adminLogs.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No activity yet</p>}
-      {adminLogs.slice(0, 50).map((log: any) => {
+      {adminLogs.slice(0, 15).map((log: any) => {
         // Determine if this action can be reverted
         const canRevert = [
           'score_update',

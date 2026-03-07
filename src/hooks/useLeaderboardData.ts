@@ -5,7 +5,7 @@ import { ALL_CLUSTERS, ClusterName } from '@/types/leaderboard';
 export function useLeaderboardData() {
   const {
     games,
-    unifiedTeamGames,
+    allUnifiedTeamGames,
     grandFinals,
     champions,
     slideDuration,
@@ -27,14 +27,14 @@ export function useLeaderboardData() {
     );
 
     // Active Team Games (non-archived) with at least one non-zero score
-    const activeTeamGames = unifiedTeamGames.filter((tg) => 
+    const activeTeamGames = allUnifiedTeamGames.filter((tg) => 
       tg.isTeamGame && 
       tg.status === 'active' &&
       tg.teams.some((t) => t.points > 0)
     );
 
     // Active cluster team matches (non-archived)
-    const activeClusterTeamMatches = unifiedTeamGames.filter((m) => 
+    const activeClusterTeamMatches = allUnifiedTeamGames.filter((m) => 
       m.isVersus && 
       m.status === 'active'
     );
@@ -55,7 +55,7 @@ export function useLeaderboardData() {
       loading,
       error
     };
-  }, [games, unifiedTeamGames, grandFinals, champions, slideDuration, loading, error]);
+  }, [games, allUnifiedTeamGames, grandFinals, champions, slideDuration, loading, error]);
 
   // Admin data (includes all items for management)
   const adminData = useMemo(() => {
@@ -65,10 +65,10 @@ export function useLeaderboardData() {
     const archivedFinals = grandFinals.filter((f) => f.archived);
     
     // Filter unified games by type
-    const activeTeamMatches = unifiedTeamGames.filter((m) => m.isVersus && m.status === 'active');
-    const archivedTeamMatches = unifiedTeamGames.filter((m) => m.isVersus && m.status === 'archived');
-    const activeTeamGames = unifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'active');
-    const archivedTeamGames = unifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'archived');
+    const activeTeamMatches = allUnifiedTeamGames.filter((m) => m.isVersus && m.status === 'active');
+    const archivedTeamMatches = allUnifiedTeamGames.filter((m) => m.isVersus && m.status === 'archived');
+    const activeTeamGames = allUnifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'active');
+    const archivedTeamGames = allUnifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'archived');
 
     return {
       games: {
@@ -79,7 +79,7 @@ export function useLeaderboardData() {
       teamGames: {
         active: activeTeamGames,
         retired: archivedTeamGames,
-        all: unifiedTeamGames.filter(g => g.isTeamGame)
+        all: allUnifiedTeamGames
       },
       grandFinals: {
         active: activeFinals,
@@ -89,14 +89,14 @@ export function useLeaderboardData() {
       clusterTeamMatches: {
         active: activeTeamMatches,
         archived: archivedTeamMatches,
-        all: unifiedTeamGames.filter(g => g.isVersus)
+        all: allUnifiedTeamGames.filter(g => g.isVersus)
       },
       champions,
       slideDuration,
       loading,
       error
     };
-  }, [games, unifiedTeamGames, grandFinals, champions, slideDuration, loading, error]);
+  }, [games, allUnifiedTeamGames, grandFinals, champions, slideDuration, loading, error]);
 
   // Helper function to get cluster logo path (standardized across components)
   const getClusterLogoPath = (clusterName: string): string => {
@@ -138,7 +138,7 @@ export function useLeaderboardData() {
       grandFinals,
       champions,
       clusterTeams: [], // Using unified team games system instead
-      unifiedTeamGames,
+      allUnifiedTeamGames,
       slideDuration,
       loading,
       error

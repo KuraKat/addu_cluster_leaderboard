@@ -113,9 +113,9 @@ export default function ClusterTeamMatchSlide({
         <motion.div
           initial={{ opacity: 0, x: -100 }}
           animate={{ 
-            opacity: showWinner && winner === teamA.name ? 0.3 : 1, 
-            x: showWinner && winner === teamA.name ? -50 : 0,
-            scale: showWinner && winner === teamA.name ? 1.1 : 1
+            opacity: showWinner && winner === teamA.name ? 1 : (showWinner ? 0.3 : 1), 
+            x: showWinner && winner === teamA.name ? 0 : (showWinner ? -50 : 0),
+            scale: showWinner && winner === teamA.name ? 1 : (showWinner ? 0.9 : 1)
           }}
           transition={{ 
             duration: 0.3,
@@ -123,7 +123,7 @@ export default function ClusterTeamMatchSlide({
           }}
           className={`flex-1 text-center p-8 rounded-2xl border-2 ${
             showWinner && winner === teamA.name 
-              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20 transform scale-105' 
+              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20' 
               : 'border-white/20 bg-white/5'
           }`}
         >
@@ -142,7 +142,7 @@ export default function ClusterTeamMatchSlide({
                     }}
                   />
                 </div>
-                <span className={`font-display text-sm md:text-base font-bold ${cluster.color}`}>{cluster.name}</span>
+                <span className="font-display text-sm md:text-base font-bold text-white">{cluster.name}</span>
               </div>
             ))}
             {getTeamClusterLogos(teamA.name).length === 0 && (
@@ -195,9 +195,9 @@ export default function ClusterTeamMatchSlide({
         <motion.div
           initial={{ opacity: 0, x: 100 }}
           animate={{ 
-            opacity: showWinner && winner === teamB.name ? 0.3 : 1, 
-            x: showWinner && winner === teamB.name ? 50 : 0,
-            scale: showWinner && winner === teamB.name ? 1.1 : 1
+            opacity: showWinner && winner === teamB.name ? 1 : (showWinner ? 0.3 : 1), 
+            x: showWinner && winner === teamB.name ? 0 : (showWinner ? 50 : 0),
+            scale: showWinner && winner === teamB.name ? 1 : (showWinner ? 0.9 : 1)
           }}
           transition={{ 
             duration: 0.3,
@@ -205,7 +205,7 @@ export default function ClusterTeamMatchSlide({
           }}
           className={`flex-1 text-center p-8 rounded-2xl border-2 ${
             showWinner && winner === teamB.name 
-              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20 transform scale-105' 
+              ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20' 
               : 'border-white/20 bg-white/5'
           }`}
         >
@@ -224,7 +224,7 @@ export default function ClusterTeamMatchSlide({
                     }}
                   />
                 </div>
-                <span className={`font-display text-sm md:text-base font-bold ${cluster.color}`}>{cluster.name}</span>
+                <span className="font-display text-sm md:text-base font-bold text-white">{cluster.name}</span>
               </div>
             ))}
             {getTeamClusterLogos(teamB.name).length === 0 && (

@@ -44,8 +44,17 @@ export default function TalliedPointsTab({
             // Get detailed team game information (include archived team games)
             const teamGameDetails = teamGames.all
               .filter((teamGame: any) => {
+                // Defensive check for teams array
+                if (!teamGame.teams || !Array.isArray(teamGame.teams)) {
+                  console.warn('Invalid teams array in team game:', teamGame.id, teamGame);
+                  return false;
+                }
+                
                 // Check if any team in this team game contains the current cluster
                 return teamGame.teams.some((team: any) => {
+                  if (!team || !team.clusters || !Array.isArray(team.clusters)) {
+                    return false;
+                  }
                   return team.clusters.includes(cluster);
                 });
               })
@@ -55,7 +64,7 @@ export default function TalliedPointsTab({
                 const participatingTeams = [];
                 
                 teamGame.teams.forEach((team: any) => {
-                  if (team.clusters.includes(cluster)) {
+                  if (team && team.clusters && Array.isArray(team.clusters) && team.clusters.includes(cluster)) {
                     totalPoints += team.points || 0;
                     participatingTeams.push(team.name);
                   }
@@ -90,20 +99,33 @@ export default function TalliedPointsTab({
               .filter((match: any) => {
                 // Only include versus matches that have a winner
                 if (!match.isVersus) return false;
-                const hasWinner = match.teams.some((team: any) => team.isWinner);
+                
+                // Defensive check for teams array
+                if (!match.teams || !Array.isArray(match.teams)) {
+                  console.warn('Invalid teams array in team match:', match.id, match);
+                  return false;
+                }
+                
+                const hasWinner = match.teams.some((team: any) => team && team.isWinner);
                 if (!hasWinner) return false;
                 
                 // Check if current cluster is in either team
                 return match.teams.some((team: any) => {
+                  if (!team || !team.clusters || !Array.isArray(team.clusters)) {
+                    return false;
+                  }
                   return team.clusters.includes(cluster);
                 });
               })
               .map((match: any) => {
-                const winnerTeam = match.teams.find((team: any) => team.isWinner);
-                const loserTeam = match.teams.find((team: any) => !team.isWinner);
+                const winnerTeam = match.teams.find((team: any) => team && team.isWinner);
+                const loserTeam = match.teams.find((team: any) => team && !team.isWinner);
                 
                 // Find which team contains the current cluster
                 const teamWithCluster = match.teams.find((team: any) => {
+                  if (!team || !team.clusters || !Array.isArray(team.clusters)) {
+                    return false;
+                  }
                   return team.clusters.includes(cluster);
                 });
                 
@@ -168,19 +190,26 @@ export default function TalliedPointsTab({
                 )}
 
                 {/* Team Games Section */}
-                {(teamGameDetails.length > 0 || teamMatchDetails.length > 0) && (
+                {teamGameDetails.length > 0 && (
                   <div className="space-y-2">
                     <h5 className="font-semibold text-sm text-cyan-400 mb-2">
-                      Team Games ({teamGameDetails.length + teamMatchDetails.length})
+                      Team Games ({teamGameDetails.length})
                     </h5>
-                    {/* Team Games */}
                     {teamGameDetails.map((teamGame: any, idx: number) => (
                       <div key={`team-game-${idx}`} className="flex justify-between items-center py-1 px-2 bg-cyan-400/10 rounded">
                         <span className="text-sm text-foreground">{teamGame.name}</span>
                         <span className="font-medium text-cyan-400">+{teamGame.points}</span>
                       </div>
                     ))}
-                    {/* Team Matches */}
+                  </div>
+                )}
+
+                {/* Team Matches Section */}
+                {teamMatchDetails.length > 0 && (
+                  <div className="space-y-2">
+                    <h5 className="font-semibold text-sm text-purple-400 mb-2">
+                      Team Matches ({teamMatchDetails.length})
+                    </h5>
                     {teamMatchDetails.map((team: any, idx: number) => (
                       <div key={`team-match-${idx}`} className="flex justify-between items-center py-1 px-2 bg-purple-400/10 rounded">
                         <span className="text-sm text-foreground">{team.name}</span>

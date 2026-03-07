@@ -23,24 +23,46 @@ export function calculateUnifiedOverallScores(
   teamGames.forEach((teamGame) => {
     if (!teamGame.isTeamGame) return; // Only process team games
     
+    // Defensive check for teams array
+    if (!teamGame.teams || !Array.isArray(teamGame.teams)) {
+      console.warn('Invalid teams array in team game:', teamGame.id, teamGame);
+      return;
+    }
+    
     teamGame.teams.forEach((team) => {
+      // Defensive check for team object
+      if (!team || typeof team !== 'object') {
+        console.warn('Invalid team object in team game:', teamGame.id, team);
+        return;
+      }
+      
       // Add team score directly to all clusters listed for this team
       const teamScore = team.points ?? 0;
       
-      team.clusters.forEach((clusterName) => {
-        if (ALL_CLUSTERS.includes(clusterName as ClusterName)) {
-          totals[clusterName as ClusterName] += teamScore;
-        }
-      });
+      // Defensive check for clusters array
+      if (team.clusters && Array.isArray(team.clusters)) {
+        team.clusters.forEach((clusterName) => {
+          if (ALL_CLUSTERS.includes(clusterName as ClusterName)) {
+            totals[clusterName as ClusterName] += teamScore;
+          }
+        });
+      }
     });
   });
 
   // Add points from team matches (versus games) - using UnifiedTeamGame interface
+  // NOTE: Team Matches are excluded from overall score since they're displayed separately in Tallied Points
   clusterTeamMatches.forEach((match) => {
     if (!match.isVersus) return; // Only process versus matches
     
+    // Defensive check for teams array
+    if (!match.teams || !Array.isArray(match.teams)) {
+      console.warn('Invalid teams array in team match:', match.id, match);
+      return;
+    }
+    
     // Check if match has a winner
-    const hasWinner = match.teams.some(team => team.isWinner);
+    const hasWinner = match.teams.some(team => team && team.isWinner);
     if (!hasWinner) return; // Only count completed matches
     
     const teamA = match.teams[0];
@@ -55,18 +77,22 @@ export function calculateUnifiedOverallScores(
       const losingPoints = match.pointsVersus?.loser_points || 5;
       
       // Add winning points to winner team clusters
-      winnerTeam.clusters.forEach((clusterName) => {
-        if (ALL_CLUSTERS.includes(clusterName as ClusterName)) {
-          totals[clusterName as ClusterName] += winningPoints;
-        }
-      });
+      if (winnerTeam.clusters && Array.isArray(winnerTeam.clusters)) {
+        winnerTeam.clusters.forEach((clusterName) => {
+          if (ALL_CLUSTERS.includes(clusterName as ClusterName)) {
+            totals[clusterName as ClusterName] += winningPoints;
+          }
+        });
+      }
       
       // Add losing points to loser team clusters
-      loserTeam.clusters.forEach((clusterName) => {
-        if (ALL_CLUSTERS.includes(clusterName as ClusterName)) {
-          totals[clusterName as ClusterName] += losingPoints;
-        }
-      });
+      if (loserTeam.clusters && Array.isArray(loserTeam.clusters)) {
+        loserTeam.clusters.forEach((clusterName) => {
+          if (ALL_CLUSTERS.includes(clusterName as ClusterName)) {
+            totals[clusterName as ClusterName] += losingPoints;
+          }
+        });
+      }
     }
   });
 

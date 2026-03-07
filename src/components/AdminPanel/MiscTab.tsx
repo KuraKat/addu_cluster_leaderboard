@@ -63,119 +63,131 @@ function ControlledInput({ value, onChange, type = "text", disabled = false, ...
 }
 
 interface MiscTabProps {
-  vignetteSettings: VignetteSettings;
-  slideDuration: number;
-  advancedSlideTiming: AdvancedSlideTiming;
-  onUpdateVignetteSettings: (settings: VignetteSettings) => void;
-  onUpdateSlideDuration: (duration: number) => void;
-  onUpdateAdvancedSlideTiming: (timing: AdvancedSlideTiming) => void;
+  config: {
+    slideDuration: number;
+    advancedSlideTiming: AdvancedSlideTiming;
+    vignetteSettings: VignetteSettings;
+  };
+  onUpdateConfig: (updates: {
+    slideDuration?: number;
+    advancedSlideTiming?: AdvancedSlideTiming;
+    vignetteSettings?: VignetteSettings;
+  }) => void;
   onLogout: () => void;
 }
 
 export default function MiscTab({
-  vignetteSettings,
-  slideDuration,
-  advancedSlideTiming,
-  onUpdateVignetteSettings,
-  onUpdateSlideDuration,
-  onUpdateAdvancedSlideTiming,
+  config,
+  onUpdateConfig,
   onLogout
 }: MiscTabProps) {
   return (
     <div className="space-y-6">
       {/* Version Information - Always at top */}
       <div className="glass-surface rounded-lg p-4 space-y-3">
-        <h3 className="font-body text-sm font-semibold text-foreground">Version 2.0.6</h3>
+        <h3 className="font-body text-sm font-semibold text-foreground">Version 2.0.11</h3>
         <div className="flex items-center justify-between">
           <div>
             <label className="text-sm text-muted-foreground">Application Version</label>
             <p className="text-xs text-muted-foreground">Current version of the leaderboard system</p>
           </div>
-          <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v2.0.6</div>
+          <div className="font-mono text-sm text-primary bg-muted px-3 py-1 rounded">v2.0.11</div>
         </div>
       </div>
 
+      {/* Unified Configuration */}
       <div className="glass-surface rounded-lg p-4 space-y-3">
-        <h3 className="font-body text-sm font-semibold text-foreground">Background Image Vignette</h3>
+        <h3 className="font-body text-sm font-semibold text-foreground">Configuration</h3>
         
-        {/* Vignette Enable/Disable */}
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="text-sm text-muted-foreground">Enable Vignette</label>
-            <p className="text-xs text-muted-foreground">Apply gradient overlay to background image only</p>
+        {/* Vignette Settings */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm text-muted-foreground">Background Vignette</label>
+              <p className="text-xs text-muted-foreground">Apply gradient overlay to background image only</p>
+            </div>
+            <Switch 
+              checked={config.vignetteSettings.enabled} 
+              onCheckedChange={(enabled) => onUpdateConfig({ 
+                vignetteSettings: { ...config.vignetteSettings, enabled } 
+              })} 
+            />
           </div>
-          <Switch 
-            checked={vignetteSettings.enabled} 
-            onCheckedChange={(checked) => onUpdateVignetteSettings({ ...vignetteSettings, enabled: checked })} 
-          />
+
+          {/* Vignette Controls - Only show when enabled */}
+          {config.vignetteSettings.enabled && (
+            <div className="space-y-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                <h4 className="font-body text-sm font-semibold text-foreground">Vignette Active</h4>
+              </div>
+              
+              {/* Vignette Radius Control */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm text-muted-foreground">Vignette Size</label>
+                  <p className="text-xs text-muted-foreground">Coverage area of the gradient effect (smaller = more focused)</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-8">{config.vignetteSettings.radius}%</span>
+                  <ControlledInput 
+                    type="number" 
+                    min={0} 
+                    max={200} 
+                    value={config.vignetteSettings.radius}
+                    onChange={(radius: number) => onUpdateConfig({ 
+                      vignetteSettings: { ...config.vignetteSettings, radius } 
+                    })}
+                    className="bg-muted border-border h-10 w-20 text-base" 
+                  />
+                </div>
+              </div>
+
+              {/* Vignette Strength Control */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm text-muted-foreground">Vignette Intensity</label>
+                  <p className="text-xs text-muted-foreground">Strength of the gradient overlay</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground w-8">{config.vignetteSettings.strength}%</span>
+                  <ControlledInput 
+                    type="number" 
+                    min={0} 
+                    max={200} 
+                    value={config.vignetteSettings.strength}
+                    onChange={(strength: number) => onUpdateConfig({ 
+                      vignetteSettings: { ...config.vignetteSettings, strength } 
+                    })}
+                    className="bg-muted border-border h-10 w-20 text-base" 
+                  />
+                </div>
+              </div>
+
+              {/* Reset Button */}
+              <div className="flex justify-center pt-2">
+                <Button
+                  onClick={() => onUpdateConfig({ 
+                    vignetteSettings: { radius: 30, strength: 85, enabled: true }
+                  })}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                >
+                  Reset to Default
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Vignette Controls - Only show when enabled */}
-        {vignetteSettings.enabled && (
-          <div className="space-y-4 pt-4 border-t border-border">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-              <h4 className="font-body text-sm font-semibold text-foreground">Vignette Active</h4>
-            </div>
-            
-            {/* Vignette Radius Control */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm text-muted-foreground">Vignette Size</label>
-                <p className="text-xs text-muted-foreground">Coverage area of the gradient effect (smaller = more focused)</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-8">{vignetteSettings.radius}%</span>
-                <ControlledInput 
-                  type="number" 
-                  min={0} 
-                  max={200} 
-                  value={vignetteSettings.radius}
-                  onChange={(newValue: number) => onUpdateVignetteSettings({ ...vignetteSettings, radius: newValue })}
-                  className="bg-muted border-border h-10 w-20 text-base" 
-                />
-              </div>
-            </div>
-
-            {/* Vignette Strength Control */}
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm text-muted-foreground">Vignette Intensity</label>
-                <p className="text-xs text-muted-foreground">Strength of the gradient overlay</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-8">{vignetteSettings.strength}%</span>
-                <ControlledInput 
-                  type="number" 
-                  min={0} 
-                  max={200} 
-                  value={vignetteSettings.strength}
-                  onChange={(newValue: number) => onUpdateVignetteSettings({ ...vignetteSettings, strength: newValue })}
-                  className="bg-muted border-border h-10 w-20 text-base" 
-                />
-              </div>
-            </div>
-
-            {/* Reset Button */}
-            <div className="flex justify-center pt-2">
-              <Button
-                onClick={() => onUpdateVignetteSettings({ ...vignetteSettings, radius: 30, strength: 85 })}
-                size="sm"
-                variant="outline"
-                className="text-xs"
-              >
-                Reset to Default
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
 
+      {/* Slide Settings */}
       <div className="glass-surface rounded-lg p-4 space-y-3">
         <h3 className="font-body text-sm font-semibold text-foreground">Slide Settings</h3>
         
         {/* Basic Slide Duration */}
-        <div className={`flex items-center justify-between ${advancedSlideTiming.useAdvanced ? 'opacity-50' : ''}`}>
+        <div className="flex items-center justify-between">
           <div>
             <label className="text-sm text-muted-foreground">Time per Slide (seconds)</label>
             <p className="text-xs text-muted-foreground">Duration for all slides when Advanced Timing is disabled</p>
@@ -184,12 +196,11 @@ export default function MiscTab({
             type="number" 
             min={1} 
             max={60} 
-            value={slideDuration}
-            onChange={(newValue: number) => onUpdateSlideDuration(newValue)}
-            disabled={advancedSlideTiming.useAdvanced}
-            className={`bg-muted border-border h-10 w-20 text-base ${
-              advancedSlideTiming.useAdvanced ? 'opacity-50 cursor-not-allowed' : ''
-            }`} 
+            value={config.slideDuration}
+            onChange={(slideDuration: number) => onUpdateConfig({ 
+              slideDuration 
+            })}
+            className="bg-muted border-border h-10 w-20 text-base" 
           />
         </div>
 
@@ -200,19 +211,21 @@ export default function MiscTab({
             <p className="text-xs text-muted-foreground">Override basic timing and set specific durations for each slide type</p>
           </div>
           <Switch 
-            checked={advancedSlideTiming.useAdvanced} 
-            onCheckedChange={(checked) => onUpdateAdvancedSlideTiming({ ...advancedSlideTiming, useAdvanced: checked })} 
+            checked={config.advancedSlideTiming.useAdvanced} 
+            onCheckedChange={(useAdvanced: boolean) => onUpdateConfig({ 
+              advancedSlideTiming: { ...config.advancedSlideTiming, useAdvanced } 
+            })} 
           />
         </div>
 
         {/* Advanced Timing Options */}
-        {advancedSlideTiming.useAdvanced && (
+        {config.advancedSlideTiming.useAdvanced && (
           <div className="space-y-4 pt-4 border-t border-border">
             <div className="flex items-center gap-2 mb-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               <h4 className="font-body text-sm font-semibold text-foreground">Advanced Timing Active</h4>
             </div>
-            <p className="text-xs text-green-400 mb-4">Specific slide durations are being applied instead of the basic timing</p>
+            <p className="text-xs text-green-400 mb-4">Specific slide durations are being applied instead of basic timing</p>
             
             <h4 className="font-body text-sm font-semibold text-foreground">Specific Slide Durations</h4>
             
@@ -226,8 +239,10 @@ export default function MiscTab({
                   type="number" 
                   min={1} 
                   max={60} 
-                  value={advancedSlideTiming.overallStanding}
-                  onChange={(newValue: number) => onUpdateAdvancedSlideTiming({ ...advancedSlideTiming, overallStanding: newValue })}
+                  value={config.advancedSlideTiming.overallStanding}
+                  onChange={(overallStanding: number) => onUpdateConfig({ 
+                    advancedSlideTiming: { ...config.advancedSlideTiming, overallStanding } 
+                  })}
                   className="bg-muted border-border h-10 w-20 text-base" 
                 />
               </div>
@@ -241,8 +256,10 @@ export default function MiscTab({
                   type="number" 
                   min={1} 
                   max={60} 
-                  value={advancedSlideTiming.games}
-                  onChange={(newValue: number) => onUpdateAdvancedSlideTiming({ ...advancedSlideTiming, games: newValue })}
+                  value={config.advancedSlideTiming.games}
+                  onChange={(games: number) => onUpdateConfig({ 
+                    advancedSlideTiming: { ...config.advancedSlideTiming, games } 
+                  })}
                   className="bg-muted border-border h-10 w-20 text-base" 
                 />
               </div>
@@ -256,8 +273,10 @@ export default function MiscTab({
                   type="number" 
                   min={1} 
                   max={60} 
-                  value={advancedSlideTiming.hallOfChampions}
-                  onChange={(newValue: number) => onUpdateAdvancedSlideTiming({ ...advancedSlideTiming, hallOfChampions: newValue })}
+                  value={config.advancedSlideTiming.hallOfChampions}
+                  onChange={(hallOfChampions: number) => onUpdateConfig({ 
+                    advancedSlideTiming: { ...config.advancedSlideTiming, hallOfChampions } 
+                  })}
                   className="bg-muted border-border h-10 w-20 text-base" 
                 />
               </div>
@@ -271,8 +290,10 @@ export default function MiscTab({
                   type="number" 
                   min={1} 
                   max={60} 
-                  value={advancedSlideTiming.grandFinals}
-                  onChange={(newValue: number) => onUpdateAdvancedSlideTiming({ ...advancedSlideTiming, grandFinals: newValue })}
+                  value={config.advancedSlideTiming.grandFinals}
+                  onChange={(grandFinals: number) => onUpdateConfig({ 
+                    advancedSlideTiming: { ...config.advancedSlideTiming, grandFinals } 
+                  })}
                   className="bg-muted border-border h-10 w-20 text-base" 
                 />
               </div>
@@ -286,8 +307,10 @@ export default function MiscTab({
                   type="number" 
                   min={1} 
                   max={60} 
-                  value={advancedSlideTiming.clusterTeamMatches}
-                  onChange={(newValue: number) => onUpdateAdvancedSlideTiming({ ...advancedSlideTiming, clusterTeamMatches: newValue })}
+                  value={config.advancedSlideTiming.clusterTeamMatches}
+                  onChange={(clusterTeamMatches: number) => onUpdateConfig({ 
+                    advancedSlideTiming: { ...config.advancedSlideTiming, clusterTeamMatches } 
+                  })}
                   className="bg-muted border-border h-10 w-20 text-base" 
                 />
               </div>
@@ -296,6 +319,7 @@ export default function MiscTab({
         )}
       </div>
 
+      {/* Session */}
       <div className="glass-surface rounded-lg p-4 space-y-3">
         <h3 className="font-body text-sm font-semibold text-foreground">Session</h3>
         <Button
