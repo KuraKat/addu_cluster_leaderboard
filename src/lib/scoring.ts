@@ -1,7 +1,6 @@
-import { Game, OverallScore, ClusterName, ALL_CLUSTERS } from "@/types/leaderboard";
-import { ClusterTeam, ClusterTeamMatch } from "@/types/leaderboard";
+import { Game, ClusterName, ALL_CLUSTERS, OverallScore, GrandFinalsMatch, Champion, UnifiedTeamGame } from "@/types/leaderboard";
 
-export function calculateOverallScores(games: Game[], clusterTeams: ClusterTeam[], clusterTeamMatches: ClusterTeamMatch[]): OverallScore[] {
+export function calculateOverallScores(games: Game[], clusterTeamMatches: UnifiedTeamGame[]): OverallScore[] {
   const totals: Record<ClusterName, number> = {} as Record<ClusterName, number>;
   ALL_CLUSTERS.forEach((c) => (totals[c] = 0));
   
@@ -14,23 +13,21 @@ export function calculateOverallScores(games: Game[], clusterTeams: ClusterTeam[
   
   // Add points from team matches (both winning and losing points)
   clusterTeamMatches.forEach((match) => {
-    if (!match.winner) return; // Only count completed matches
+    // Only process versus matches that have a winner
+    if (!match.isVersus) return;
     
-    const teamA = clusterTeams.find(t => t.id === match.teamA);
-    const teamB = clusterTeams.find(t => t.id === match.teamB);
+    const winnerTeam = match.teams.find(t => t.isWinner);
+    const loserTeam = match.teams.find(t => !t.isWinner);
     
-    if (teamA && teamB) {
+    if (winnerTeam && loserTeam && match.pointsVersus) {
       // Add winning points to winner team clusters
-      const winnerTeam = match.winner === 'A' ? teamA : teamB;
-      const loserTeam = match.winner === 'A' ? teamB : teamA;
-      
       winnerTeam.clusters.forEach((cluster) => {
-        totals[cluster] += match.winningPoints;
+        totals[cluster as ClusterName] += match.pointsVersus.winner_points;
       });
       
       // Add losing points to loser team clusters
       loserTeam.clusters.forEach((cluster) => {
-        totals[cluster] += match.losingPoints;
+        totals[cluster as ClusterName] += match.pointsVersus.loser_points;
       });
     }
   });

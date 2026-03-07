@@ -45,7 +45,7 @@ export default function GrandFinalsSlide({ match, onComplete, isAdmin = false }:
     }, 50);
     
     return () => { clearInterval(interval); };
-  }, [match.id, onComplete, currentSlideDuration]); // Add currentSlideDuration to dependencies
+  }, [match.id, onComplete, slideDuration, advancedSlideTiming]); // Remove currentSlideDuration to prevent re-renders
 
   return (
     <div className="flex flex-col items-center justify-center h-full px-4 sm:px-6 md:px-8 pb-8 sm:pb-12 md:pb-16">

@@ -17,7 +17,7 @@ export default function GlobalFooter() {
         </span>
       </div>
       <div className="flex items-center gap-4 text-xs text-muted-foreground font-body">
-        <span>Current Version 1.3.4</span>
+        <span>Current Version 2.0.6</span>
         <span>Developed by: <a href="https://github.com/KuraKat" target="_blank" rel="noopener noreferrer" className="text-foreground font-medium hover:text-primary transition-colors">Evan Toledo, Kibs</a></span>
       </div>
     </div>

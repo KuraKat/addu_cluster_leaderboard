@@ -5,11 +5,9 @@ import { ALL_CLUSTERS, ClusterName } from '@/types/leaderboard';
 export function useLeaderboardData() {
   const {
     games,
-    teamGames,
+    unifiedTeamGames,
     grandFinals,
     champions,
-    clusterTeams,
-    clusterTeamMatches,
     slideDuration,
     loading,
     error
@@ -17,9 +15,8 @@ export function useLeaderboardData() {
 
   // Standardized filtered data for slides
   const slideData = useMemo(() => {
-    // Active (non-retired, non-archived) games with at least one non-zero score
+    // Active (non-archived) games with at least one non-zero score
     const activeGames = games.filter((g) => 
-      !g.retired && 
       !g.archived && 
       Object.values(g.scores).some((s) => s > 0)
     );
@@ -29,22 +26,23 @@ export function useLeaderboardData() {
       f.isActive && !f.archived
     );
 
-    // Active Team Games (non-retired) with at least one non-zero score
-    const activeTeamGames = teamGames.filter((tg) => 
-      !tg.retired && 
-      Object.values(tg.scores).some((s) => s > 0)
+    // Active Team Games (non-archived) with at least one non-zero score
+    const activeTeamGames = unifiedTeamGames.filter((tg) => 
+      tg.isTeamGame && 
+      tg.status === 'active' &&
+      tg.teams.some((t) => t.points > 0)
     );
 
-    // Active cluster teams
-    const activeClusterTeams = clusterTeams;
-
     // Active cluster team matches (non-archived)
-    const activeClusterTeamMatches = clusterTeamMatches.filter((m) => !m.archived);
+    const activeClusterTeamMatches = unifiedTeamGames.filter((m) => 
+      m.isVersus && 
+      m.status === 'active'
+    );
 
-    // Champions from active games
-    const activeChampions = champions.filter((c) => {
+  // Champions from active games
+  const activeChampions = champions.filter((c) => {
       const game = games.find(g => g.id === c.gameId);
-      return game && !game.retired && !game.archived;
+      return game && !game.archived;
     });
 
     return {
@@ -52,35 +50,36 @@ export function useLeaderboardData() {
       teamGames: activeTeamGames,
       grandFinals: activeGrandFinals,
       champions: activeChampions,
-      clusterTeams: activeClusterTeams,
       clusterTeamMatches: activeClusterTeamMatches,
       slideDuration,
       loading,
       error
     };
-  }, [games, teamGames, grandFinals, champions, clusterTeams, clusterTeamMatches, slideDuration, loading, error]);
+  }, [games, unifiedTeamGames, grandFinals, champions, slideDuration, loading, error]);
 
   // Admin data (includes all items for management)
   const adminData = useMemo(() => {
-    const activeGames = games.filter((g) => !g.retired);
-    const retiredGames = games.filter((g) => g.retired);
+    const activeGames = games.filter((g) => !g.archived);
+    const archivedGames = games.filter((g) => g.archived);
     const activeFinals = grandFinals.filter((f) => !f.archived);
     const archivedFinals = grandFinals.filter((f) => f.archived);
-    const activeTeamMatches = clusterTeamMatches.filter((m) => !m.archived);
-    const archivedTeamMatches = clusterTeamMatches.filter((m) => m.archived);
-    const activeTeamGames = teamGames.filter((tg) => !tg.retired);
-    const retiredTeamGames = teamGames.filter((tg) => tg.retired);
+    
+    // Filter unified games by type
+    const activeTeamMatches = unifiedTeamGames.filter((m) => m.isVersus && m.status === 'active');
+    const archivedTeamMatches = unifiedTeamGames.filter((m) => m.isVersus && m.status === 'archived');
+    const activeTeamGames = unifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'active');
+    const archivedTeamGames = unifiedTeamGames.filter((tg) => tg.isTeamGame && tg.status === 'archived');
 
     return {
       games: {
         active: activeGames,
-        retired: retiredGames,
+        retired: archivedGames,
         all: games
       },
       teamGames: {
         active: activeTeamGames,
-        retired: retiredTeamGames,
-        all: teamGames
+        retired: archivedTeamGames,
+        all: unifiedTeamGames.filter(g => g.isTeamGame)
       },
       grandFinals: {
         active: activeFinals,
@@ -90,15 +89,14 @@ export function useLeaderboardData() {
       clusterTeamMatches: {
         active: activeTeamMatches,
         archived: archivedTeamMatches,
-        all: clusterTeamMatches
+        all: unifiedTeamGames.filter(g => g.isVersus)
       },
       champions,
-      clusterTeams,
       slideDuration,
       loading,
       error
     };
-  }, [games, teamGames, grandFinals, champions, clusterTeams, clusterTeamMatches, slideDuration, loading, error]);
+  }, [games, unifiedTeamGames, grandFinals, champions, slideDuration, loading, error]);
 
   // Helper function to get cluster logo path (standardized across components)
   const getClusterLogoPath = (clusterName: string): string => {
@@ -139,8 +137,8 @@ export function useLeaderboardData() {
       games,
       grandFinals,
       champions,
-      clusterTeams,
-      clusterTeamMatches,
+      clusterTeams: [], // Using unified team games system instead
+      unifiedTeamGames,
       slideDuration,
       loading,
       error

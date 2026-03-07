@@ -9,13 +9,14 @@ import GrandFinalsSlide from "@/components/GrandFinalsSlide";
 import ChampionsSlide from "@/components/ChampionsSlide";
 import ClusterTeamMatchSlide from "@/components/ClusterTeamMatchSlide";
 import { useAuth } from "@/hooks/useAuth";
+import { CLUSTER_CONFIG } from "@/types/leaderboard";
 
 export default function PresentationCarousel() {
-  const { setMatchWinner, undoMatchWinner, slideDuration, advancedSlideTiming } = useFirestoreData();
+  const { setMatchWinner, slideDuration, advancedSlideTiming, undoMatchWinner } = useFirestoreData();
   const { user } = useAuth();
   const { slideData } = useLeaderboardData();
 
-  const { games, teamGames, grandFinals, clusterTeamMatches, clusterTeams } = slideData;
+  const { games, teamGames, grandFinals, clusterTeamMatches } = slideData;
   const hasChampions = games.length > 0;
 
   // Slide order: Overall > Grand Finals > Team Matches > Games > Team Games > Champions
@@ -158,20 +159,14 @@ export default function PresentationCarousel() {
     // Cluster Team Match slides
     if (idx < clusterTeamMatches.length) {
       const match = clusterTeamMatches[idx];
-      const teamA = clusterTeams.find(t => t.id === match.teamA);
-      const teamB = clusterTeams.find(t => t.id === match.teamB);
       
-      if (!teamA || !teamB) {
-        return <OverallLeaderboard />; // Fallback if teams not found
-      }
-
       return (
         <ClusterTeamMatchSlide
           match={match}
-          teamA={teamA}
-          teamB={teamB}
           isAdmin={!!user}
-          onSetWinner={setMatchWinner}
+          onSetWinner={(matchId, winnerTeamName) => {
+            setMatchWinner(matchId, winnerTeamName);
+          }}
           onUndoWinner={undoMatchWinner}
         />
       );

@@ -39,8 +39,8 @@ export interface Game {
   scores: Record<ClusterName, number>;
   retired?: boolean; // retired games still count in overall but don't show individual slides
   archived?: boolean; // archived games are completely hidden
-  showTopOnly?: boolean; // if true, only show top 5 clusters, otherwise show all
-  showTop3?: boolean; // if true, only show top 3 clusters, otherwise show all
+  showTop5?: boolean; // if true, only show top 5 teams, otherwise show all
+  showTop3?: boolean; // if true, only show top 3 teams, otherwise show all
 }
 
 export interface OverallScore {
@@ -75,30 +75,6 @@ export interface Champion {
   cluster: ClusterName;
   score: number;
   timestamp: number;
-}
-
-// Cluster Team System Types
-export interface ClusterTeam {
-  id: string;
-  name: string;
-  clusters: ClusterName[]; // 1-4 clusters per team
-  isActive: boolean;
-  totalScore: number;
-  wins: number;
-  losses: number;
-}
-
-export interface ClusterTeamMatch {
-  id: string;
-  teamA: string; // ClusterTeam ID
-  teamB: string; // ClusterTeam ID
-  eventTitle: string;
-  winningPoints: number;
-  losingPoints: number;
-  isActive: boolean;
-  winner?: "A" | "B"; // undefined = not decided yet
-  timestamp: number;
-  archived?: boolean;
 }
 
 export interface PendingChange {
@@ -139,13 +115,30 @@ export interface VignetteSettings {
   strength: number; // 0-200, where 0 is no vignette and 200 is maximum strength
 }
 
-export interface TeamGame {
-  id: string;
-  name: string;
-  teams: ClusterName[]; // Array of cluster names participating in this team game
-  scores: Record<string, number>; // Cluster name -> score mapping
-  retired: boolean;
-  top3: boolean;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
+
+// NEW: Unified Team Game Document (replaces separate matches/games)
+export interface UnifiedTeamGame {
+id: string;
+title: string;          // e.g., "Tug of War" or "Red vs Blue"
+isTeamGame: boolean;    // If true -> Use TeamGamesSlide
+isVersus: boolean;      // If true -> Use ClusterTeamMatchSlide
+
+// Only populated if isVersus == true
+pointsVersus?: {
+  winner_points: number;
+  loser_points: number;
+};
+
+// Dynamic Array of Teams (Supports 2 for Versus, or 3+ for Team Games)
+teams: {
+  name: string;         // e.g., "Team A" or "Red Jaguars"
+  clusters: string[];   // ["Salamanca", "Manresa"]
+  points: number;       // Manual if isTeamGame, Auto if isVersus
+  isActive: boolean;    
+  isWinner: boolean;    // Default false, used if isVersus
+}[];
+
+status: "active" | "archived" | "retired";
+createdAt: Timestamp;
+updatedAt: Timestamp;
 }

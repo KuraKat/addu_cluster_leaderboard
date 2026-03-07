@@ -1,33 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
   gamesService, 
-  teamGamesService,
-  clusterTeamsService, 
-  clusterTeamMatchesService, 
+  unifiedTeamGamesService,
   configService,
   grandFinalsService,
   championsService
 } from '@/lib/firestore';
 import { 
   Game, 
-  ClusterTeam, 
-  ClusterTeamMatch, 
+  ClusterName,
+  UnifiedTeamGame,
   GrandFinalsMatch, 
   Champion, 
-  ClusterName, 
-  AdvancedSlideTiming,
   VignetteSettings,
-  TeamGame
+  AdvancedSlideTiming
 } from '@/types/leaderboard';
 import { useAuth } from './useAuth';
 
 interface FirestoreDataStore {
   games: Game[];
-  teamGames: TeamGame[];
+  unifiedTeamGames: UnifiedTeamGame[];
   grandFinals: GrandFinalsMatch[];
   champions: Champion[];
-  clusterTeams: ClusterTeam[];
-  clusterTeamMatches: ClusterTeamMatch[];
   slideDuration: number;
   advancedSlideTiming: AdvancedSlideTiming;
   vignetteSettings: VignetteSettings;
@@ -35,21 +29,26 @@ interface FirestoreDataStore {
   error: string | null;
   
   // Game operations
-  updateScore: (gameId: string, cluster: string, score: number) => Promise<void>;
+  updateScore: (gameId: string, cluster: ClusterName, score: number) => Promise<void>;
   addGame: (name: string) => Promise<void>;
   removeGame: (gameId: string) => Promise<void>;
   retireGame: (gameId: string) => Promise<void>;
   unretireGame: (gameId: string) => Promise<void>;
-  updateGameVisibility: (gameId: string, showTopOnly: boolean) => Promise<void>;
+  updateGameVisibility: (gameId: string, showTop5: boolean) => Promise<void>;
   updateGameTop3: (gameId: string, showTop3: boolean) => Promise<void>;
 
-  // Team game operations
-  addTeamGame: (name: string, teams: ClusterName[]) => Promise<void>;
-  updateTeamGameScore: (teamGameId: string, cluster: string, score: number) => Promise<void>;
-  removeTeamGame: (teamGameId: string) => Promise<void>;
-  retireTeamGame: (teamGameId: string) => Promise<void>;
+  // Unified Team Game operations
+  createTeamGame: (title: string, teams: { name: string; clusters: ClusterName[] }[]) => Promise<string>;
+  createVersusMatch: (title: string, teamA: { name: string; clusters: ClusterName[] }, teamB: { name: string; clusters: ClusterName[] }, winnerPoints: number, loserPoints: number) => Promise<string>;
+  setMatchWinner: (matchId: string, winnerTeamName: string) => Promise<void>;
+  undoMatchWinner: (matchId: string) => Promise<void>;
+  updateTeamGameScore: (gameId: string, teamName: string, points: number) => Promise<void>;
+  archiveGame: (gameId: string) => Promise<void>;
+  deleteUnifiedGame: (gameId: string) => Promise<void>;
+  updateUnifiedGameStatus: (gameId: string, status: 'active' | 'archived') => Promise<void>;
   unretireTeamGame: (teamGameId: string) => Promise<void>;
-  updateTeamGameVisibility: (teamGameId: string, top3: boolean) => Promise<void>;
+  updateTeamGameVisibility: (teamGameId: string, showTop5: boolean) => Promise<void>;
+  updateTeamGameTop3: (teamGameId: string, showTop3: boolean) => Promise<void>;
   
   // Grand Finals operations
   addGrandFinals: (title: string, clusterA: ClusterName, clusterB: ClusterName) => Promise<void>;
@@ -59,21 +58,7 @@ interface FirestoreDataStore {
   unarchiveGrandFinals: (finalId: string) => Promise<void>;
   addBet: (id: string, side: "A" | "B") => Promise<void>;
   
-  // Team operations
-  addClusterTeam: (team: Omit<ClusterTeam, 'id'>) => Promise<void>;
-  updateClusterTeam: (teamId: string, updates: Partial<ClusterTeam>) => Promise<void>;
-  removeClusterTeam: (teamId: string) => Promise<void>;
-  
-  // Team Match operations
-  addClusterTeamMatch: (match: Omit<ClusterTeamMatch, 'id'>) => Promise<void>;
-  updateClusterTeamMatch: (matchId: string, updates: Partial<ClusterTeamMatch>) => Promise<void>;
-  deleteClusterTeamMatch: (matchId: string) => Promise<void>;
-  setMatchWinner: (matchId: string, winner: "A" | "B") => Promise<void>;
-  undoMatchWinner: (matchId: string) => Promise<void>;
-  archiveClusterTeamMatch: (matchId: string) => Promise<void>;
-  unarchiveClusterTeamMatch: (matchId: string) => Promise<void>;
-  
-  // Settings
+  // Settings operations
   updateSlideDuration: (duration: number) => Promise<void>;
   updateAdvancedSlideTiming: (timing: AdvancedSlideTiming) => Promise<void>;
   updateVignetteSettings: (settings: VignetteSettings) => Promise<void>;
@@ -82,11 +67,9 @@ interface FirestoreDataStore {
 export function useFirestoreData(): FirestoreDataStore {
   const { user } = useAuth();
   const [games, setGames] = useState<Game[]>([]);
-  const [teamGames, setTeamGames] = useState<TeamGame[]>([]);
+  const [unifiedTeamGames, setUnifiedTeamGames] = useState<UnifiedTeamGame[]>([]);
   const [grandFinals, setGrandFinals] = useState<GrandFinalsMatch[]>([]);
   const [champions, setChampions] = useState<Champion[]>([]);
-  const [clusterTeams, setClusterTeams] = useState<ClusterTeam[]>([]);
-  const [clusterTeamMatches, setClusterTeamMatches] = useState<ClusterTeamMatch[]>([]);
   const [slideDuration, setSlideDuration] = useState(7);
   const [advancedSlideTiming, setAdvancedSlideTiming] = useState<AdvancedSlideTiming>({
     overallStanding: 7,
@@ -120,7 +103,7 @@ export function useFirestoreData(): FirestoreDataStore {
     const unsubscribers: (() => void)[] = [];
 
     try {
-      // Set up real-time listeners
+      // Set up real-time listeners for dynamic data
       unsubscribers.push(
         gamesService.subscribe((data) => {
           setGames(data);
@@ -128,8 +111,8 @@ export function useFirestoreData(): FirestoreDataStore {
       );
 
       unsubscribers.push(
-        teamGamesService.subscribe((data) => {
-          setTeamGames(data);
+        unifiedTeamGamesService.subscribe((data) => {
+          setUnifiedTeamGames(data);
         })
       );
 
@@ -139,23 +122,19 @@ export function useFirestoreData(): FirestoreDataStore {
         })
       );
 
-      unsubscribers.push(
-        championsService.subscribe((data) => {
-          setChampions(data);
-        })
-      );
+      // Fetch static data once on mount
+      const fetchStaticData = async () => {
+        try {
+          const [championsData] = await Promise.all([
+            championsService.getAll()
+          ]);
+          setChampions(championsData);
+        } catch (err) {
+          console.error('Failed to fetch static data:', err);
+        }
+      };
 
-      unsubscribers.push(
-        clusterTeamsService.subscribe((data) => {
-          setClusterTeams(data);
-        })
-      );
-
-      unsubscribers.push(
-        clusterTeamMatchesService.subscribe((data) => {
-          setClusterTeamMatches(data);
-        })
-      );
+      fetchStaticData();
 
       // Unified config subscription (replaces 3 separate subscriptions)
       unsubscribers.push(
@@ -228,10 +207,10 @@ export function useFirestoreData(): FirestoreDataStore {
     }
   }, [getAdminInfo]);
 
-  const updateGameVisibility = useCallback(async (gameId: string, showTopOnly: boolean) => {
+  const updateGameVisibility = useCallback(async (gameId: string, showTop5: boolean) => {
     try {
       const adminInfo = getAdminInfo();
-      await gamesService.updateVisibility(gameId, showTopOnly, adminInfo.email, adminInfo.name);
+      await gamesService.updateVisibility(gameId, showTop5, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update game visibility');
       throw err;
@@ -308,108 +287,6 @@ export function useFirestoreData(): FirestoreDataStore {
     }
   }, []);
 
-  // Team operations
-  const addClusterTeam = useCallback(async (team: Omit<ClusterTeam, 'id'>) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamsService.create(team, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add team');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const updateClusterTeam = useCallback(async (teamId: string, updates: Partial<ClusterTeam>) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamsService.update(teamId, updates, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update team');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const removeClusterTeam = useCallback(async (teamId: string) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamsService.delete(teamId, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove team');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  // Team match operations
-  const addClusterTeamMatch = useCallback(async (match: Omit<ClusterTeamMatch, 'id'>) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamMatchesService.create(match, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add match');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const updateClusterTeamMatch = useCallback(async (matchId: string, updates: Partial<ClusterTeamMatch>) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamMatchesService.update(matchId, updates, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update match');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const setMatchWinner = useCallback(async (matchId: string, winner: "A" | "B") => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamMatchesService.setWinner(matchId, winner, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to set winner');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const undoMatchWinner = useCallback(async (matchId: string) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamMatchesService.undoWinner(matchId, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to undo match winner');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const archiveClusterTeamMatch = useCallback(async (matchId: string) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamMatchesService.archive(matchId, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to archive team match');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const unarchiveClusterTeamMatch = useCallback(async (matchId: string) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamMatchesService.unarchive(matchId, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to unarchive team match');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
-  const deleteClusterTeamMatch = useCallback(async (matchId: string) => {
-    try {
-      const adminInfo = getAdminInfo();
-      await clusterTeamMatchesService.delete(matchId, adminInfo.email, adminInfo.name);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete match');
-      throw err;
-    }
-  }, [getAdminInfo]);
-
   // Settings
   const updateSlideDuration = useCallback(async (duration: number) => {
     try {
@@ -441,62 +318,34 @@ export function useFirestoreData(): FirestoreDataStore {
     }
   }, [getAdminInfo]);
 
-  // Team game operations
-  const addTeamGame = useCallback(async (name: string, teams: ClusterName[]) => {
-    try {
-      const adminInfo = getAdminInfo();
-      const scores: Record<string, number> = {};
-      teams.forEach(team => {
-        scores[team] = 0;
-      });
-      
-      await teamGamesService.add({
-        name,
-        teams,
-        scores,
-        retired: false,
-        top3: false
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to add team game');
-      throw err;
-    }
-  }, [getAdminInfo]);
+  // Team game operations - using unified system directly
 
-  const updateTeamGameScore = useCallback(async (teamGameId: string, cluster: string, score: number) => {
+  const updateTeamGameScore = useCallback(async (gameId: string, teamName: string, points: number) => {
     try {
       const adminInfo = getAdminInfo();
-      const teamGame = teamGames.find(tg => tg.id === teamGameId);
-      if (!teamGame) throw new Error('Team game not found');
-      
-      await teamGamesService.update(teamGameId, {
-        scores: {
-          ...teamGame.scores,
-          [cluster]: score
-        }
-      });
+      await unifiedTeamGamesService.updateTeamScore(gameId, teamName, points, getAdminInfo().email, getAdminInfo().name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update team game score');
       throw err;
     }
-  }, [teamGames, getAdminInfo]);
+  }, [getAdminInfo]);
 
   const removeTeamGame = useCallback(async (teamGameId: string) => {
     try {
       const adminInfo = getAdminInfo();
-      await teamGamesService.delete(teamGameId);
+      await unifiedTeamGamesService.archiveGame(teamGameId, getAdminInfo().email, getAdminInfo().name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove team game');
       throw err;
     }
   }, [getAdminInfo]);
 
-  const retireTeamGame = useCallback(async (teamGameId: string) => {
+  const deleteTeamGame = useCallback(async (teamGameId: string) => {
     try {
       const adminInfo = getAdminInfo();
-      await teamGamesService.update(teamGameId, { retired: true });
+      await unifiedTeamGamesService.deleteGame(teamGameId, getAdminInfo().email, getAdminInfo().name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to retire team game');
+      setError(err instanceof Error ? err.message : 'Failed to delete team game');
       throw err;
     }
   }, [getAdminInfo]);
@@ -504,36 +353,45 @@ export function useFirestoreData(): FirestoreDataStore {
   const unretireTeamGame = useCallback(async (teamGameId: string) => {
     try {
       const adminInfo = getAdminInfo();
-      await teamGamesService.update(teamGameId, { retired: false });
+      await unifiedTeamGamesService.unarchiveGame(teamGameId, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to unretire team game');
       throw err;
     }
   }, [getAdminInfo]);
 
-  const updateTeamGameVisibility = useCallback(async (teamGameId: string, top3: boolean) => {
+  const updateTeamGameVisibility = useCallback(async (teamGameId: string, showTop5: boolean) => {
     try {
       const adminInfo = getAdminInfo();
-      await teamGamesService.update(teamGameId, { top3 });
+      await unifiedTeamGamesService.updateGameVisibility(teamGameId, showTop5, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update team game visibility');
       throw err;
     }
   }, [getAdminInfo]);
 
+  const updateTeamGameTop3 = useCallback(async (teamGameId: string, showTop3: boolean) => {
+    try {
+      const adminInfo = getAdminInfo();
+      await unifiedTeamGamesService.updateGameTop3(teamGameId, showTop3, adminInfo.email, adminInfo.name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update team game top3 setting');
+      throw err;
+    }
+  }, [getAdminInfo]);
+
   return {
     games,
-    teamGames,
+    unifiedTeamGames,
     grandFinals,
     champions,
-    clusterTeams,
-    clusterTeamMatches,
     slideDuration,
     advancedSlideTiming,
     vignetteSettings,
     loading,
     error,
     
+    // Game operations
     updateScore,
     addGame,
     removeGame,
@@ -541,12 +399,21 @@ export function useFirestoreData(): FirestoreDataStore {
     unretireGame,
     updateGameVisibility,
     updateGameTop3,
-    addTeamGame,
-    updateTeamGameScore,
-    removeTeamGame,
-    retireTeamGame,
+    
+    // Unified Team Game operations
+    createTeamGame: (title: string, teams: { name: string; clusters: ClusterName[] }[]) => unifiedTeamGamesService.createTeamGame(title, teams, getAdminInfo().email, getAdminInfo().name),
+    createVersusMatch: (title: string, teamA: { name: string; clusters: ClusterName[] }, teamB: { name: string; clusters: ClusterName[] }, winnerPoints: number, loserPoints: number) => unifiedTeamGamesService.createVersusMatch(title, teamA, teamB, winnerPoints, loserPoints, getAdminInfo().email, getAdminInfo().name),
+    setMatchWinner: (matchId: string, winnerTeamName: string) => unifiedTeamGamesService.setMatchWinner(matchId, winnerTeamName, getAdminInfo().email, getAdminInfo().name),
+    undoMatchWinner: (matchId: string) => unifiedTeamGamesService.undoMatchWinner(matchId, getAdminInfo().email, getAdminInfo().name),
+    updateTeamGameScore: (gameId: string, teamName: string, points: number) => unifiedTeamGamesService.updateTeamScore(gameId, teamName, points, getAdminInfo().email, getAdminInfo().name),
+    archiveGame: (gameId: string) => unifiedTeamGamesService.archiveGame(gameId, getAdminInfo().email, getAdminInfo().name),
+    deleteUnifiedGame: (gameId: string) => unifiedTeamGamesService.deleteGame(gameId, getAdminInfo().email, getAdminInfo().name),
+    updateUnifiedGameStatus: (gameId: string, status: 'active' | 'archived') => unifiedTeamGamesService.updateGameStatus(gameId, status, getAdminInfo().email, getAdminInfo().name),
     unretireTeamGame,
     updateTeamGameVisibility,
+    updateTeamGameTop3,
+    
+    // Grand Finals operations
     addGrandFinals,
     removeGrandFinals,
     updateGrandFinals,
@@ -554,20 +421,9 @@ export function useFirestoreData(): FirestoreDataStore {
     unarchiveGrandFinals,
     addBet,
     
-    addClusterTeam,
-    updateClusterTeam,
-    removeClusterTeam,
-    
-    addClusterTeamMatch,
-    updateClusterTeamMatch,
-    deleteClusterTeamMatch,
-    setMatchWinner,
-    undoMatchWinner,
-    archiveClusterTeamMatch,
-    unarchiveClusterTeamMatch,
-    
+    // Settings
     updateSlideDuration,
     updateAdvancedSlideTiming,
-    updateVignetteSettings,
+    updateVignetteSettings
   };
 }

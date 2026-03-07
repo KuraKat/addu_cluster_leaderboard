@@ -17,7 +17,19 @@ import {
   addDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Game, ClusterName, PointLog, GrandFinalsMatch, Champion, ClusterTeam, ClusterTeamMatch, PendingChange, AdminLog, AdvancedSlideTiming, VignetteSettings, TeamGame } from '@/types/leaderboard';
+import { 
+  Game, 
+  ClusterName, 
+  ALL_CLUSTERS, 
+  OverallScore, 
+  GrandFinalsMatch, 
+  Champion, 
+  UnifiedTeamGame,
+  PointLog,
+  AdminLog,
+  AdvancedSlideTiming,
+  VignetteSettings
+} from "@/types/leaderboard";
 
 // Collection references
 const GAMES_COLLECTION = 'games';
@@ -98,7 +110,7 @@ export const gamesService = {
       name,
       scores: {} as Record<ClusterName, number>,
       retired: false,
-      showTopOnly: false,
+      showTop5: false,
       showTop3: false
     };
 
@@ -205,9 +217,9 @@ export const gamesService = {
   },
 
   // Update game visibility
-  async updateVisibility(gameId: string, showTopOnly: boolean, adminEmail: string, adminName: string): Promise<void> {
+  async updateVisibility(gameId: string, showTop5: boolean, adminEmail: string, adminName: string): Promise<void> {
     await updateDoc(doc(db, GAMES_COLLECTION, gameId), {
-      showTopOnly,
+      showTop5,
       updatedAt: serverTimestamp()
     });
 
@@ -217,7 +229,7 @@ export const gamesService = {
       adminEmail,
       adminName,
       action: 'game_visibility',
-      details: `Updated visibility for game with ID: ${gameId} to showTopOnly: ${showTopOnly}`,
+      details: `Updated visibility for game with ID: ${gameId} to showTop5: ${showTop5}`,
       timestamp: serverTimestamp(),
       approved: true
     });
@@ -243,293 +255,61 @@ export const gamesService = {
   }
 };
 
-// Cluster Teams operations
-export const clusterTeamsService = {
-  async getAll(): Promise<ClusterTeam[]> {
-    const snapshot = await getDocs(collection(db, TEAMS_COLLECTION));
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as ClusterTeam));
-  },
-
-  subscribe(callback: (teams: ClusterTeam[]) => void) {
-    return onSnapshot(collection(db, TEAMS_COLLECTION), (snapshot) => {
-      const teams = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as ClusterTeam));
-      callback(teams);
-    });
-  },
-
-  async create(team: Omit<ClusterTeam, 'id'>, adminEmail: string, adminName: string): Promise<void> {
-    const docRef = doc(collection(db, TEAMS_COLLECTION));
-    await setDoc(docRef, {
-      ...team,
-      createdAt: serverTimestamp()
-    });
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_create',
-      details: `Created new team: ${team.name}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
-  },
-
-  async update(teamId: string, updates: Partial<ClusterTeam>, adminEmail: string, adminName: string): Promise<void> {
-    await updateDoc(doc(db, TEAMS_COLLECTION, teamId), {
-      ...updates,
-      updatedAt: serverTimestamp()
-    });
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_update',
-      details: `Updated team with ID: ${teamId}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
-  },
-
-  async delete(teamId: string, adminEmail: string, adminName: string): Promise<void> {
-    await deleteDoc(doc(db, TEAMS_COLLECTION, teamId));
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_delete',
-      details: `Deleted team with ID: ${teamId}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
-  }
-};
-
-// Cluster Team Matches operations
+// Cluster Team Matches operations - wrapper for versus matches from unified system
 export const clusterTeamMatchesService = {
-  async getAll(): Promise<ClusterTeamMatch[]> {
-    const snapshot = await getDocs(collection(db, TEAM_MATCHES_COLLECTION));
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      timestamp: fromFirestoreTimestamp(doc.data().timestamp)
-    } as ClusterTeamMatch));
+  async getAll(): Promise<UnifiedTeamGame[]> {
+    // Return only versus matches from unified system
+    const allGames = await unifiedTeamGamesService.getAll();
+    return allGames.filter(game => game.isVersus);
   },
 
-  subscribe(callback: (matches: ClusterTeamMatch[]) => void) {
-    return onSnapshot(collection(db, TEAM_MATCHES_COLLECTION), (snapshot) => {
-      const matches = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        timestamp: fromFirestoreTimestamp(doc.data().timestamp)
-      } as ClusterTeamMatch));
-      callback(matches);
+  subscribe(callback: (matches: UnifiedTeamGame[]) => void) {
+    // Subscribe to versus matches from unified system
+    return unifiedTeamGamesService.subscribe((allGames) => {
+      const versusMatches = allGames.filter(game => game.isVersus);
+      callback(versusMatches);
     });
   },
 
-  async create(match: Omit<ClusterTeamMatch, 'id'>, adminEmail: string, adminName: string): Promise<void> {
-    const docRef = doc(collection(db, TEAM_MATCHES_COLLECTION));
-    await setDoc(docRef, {
-      ...match,
-      timestamp: serverTimestamp()
-    });
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_match_create',
-      details: `Created new team match: ${match.eventTitle}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
+  // Create a new versus match using unified system
+  async create(title: string, teamAName: string, teamBName: string, winningPoints: number, losingPoints: number, adminEmail: string, adminName: string): Promise<void> {
+    const unifiedTeamA = { name: teamAName, clusters: [] };
+    const unifiedTeamB = { name: teamBName, clusters: [] };
+    await unifiedTeamGamesService.createVersusMatch(title, unifiedTeamA, unifiedTeamB, winningPoints, losingPoints, adminEmail, adminName);
   },
 
-  async update(matchId: string, updates: Partial<ClusterTeamMatch>, adminEmail: string, adminName: string): Promise<void> {
-    await updateDoc(doc(db, TEAM_MATCHES_COLLECTION, matchId), {
-      ...updates,
-      updatedAt: serverTimestamp()
-    });
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_match_update',
-      details: `Updated team match with ID: ${matchId}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
-  },
-
+  // Set winner for a versus match (converts A/B to team winner)
   async setWinner(matchId: string, winner: "A" | "B", adminEmail: string, adminName: string): Promise<void> {
-    const matchRef = doc(db, TEAM_MATCHES_COLLECTION, matchId);
-    const matchDoc = await getDoc(matchRef);
-    
-    if (!matchDoc.exists()) throw new Error('Match not found');
-    
-    const match = matchDoc.data() as ClusterTeamMatch;
-
-    // Update match with winner
-    await updateDoc(matchRef, {
-      winner,
-      decidedAt: serverTimestamp()
-    });
-
-    // Update team statistics
-    const teamsRef = collection(db, TEAMS_COLLECTION);
-    const winnerTeamId = winner === "A" ? match.teamA : match.teamB;
-    const loserTeamId = winner === "A" ? match.teamB : match.teamA;
-
-    const winnerTeamDoc = await getDoc(doc(teamsRef, winnerTeamId));
-    const loserTeamDoc = await getDoc(doc(teamsRef, loserTeamId));
-
-    if (winnerTeamDoc.exists() && loserTeamDoc.exists()) {
-      const batch = writeBatch(db);
-      
-      // Update winner stats
-      batch.update(doc(teamsRef, winnerTeamId), {
-        wins: (winnerTeamDoc.data() as ClusterTeam).wins + 1,
-        totalScore: (winnerTeamDoc.data() as ClusterTeam).totalScore + match.winningPoints
-      });
-
-      // Update loser stats
-      batch.update(doc(teamsRef, loserTeamId), {
-        losses: (loserTeamDoc.data() as ClusterTeam).losses + 1,
-        totalScore: (loserTeamDoc.data() as ClusterTeam).totalScore + match.losingPoints // Add positive losing points
-      });
-
-      await batch.commit();
+    const game = await unifiedTeamGamesService.getAll();
+    const targetGame = game.find(g => g.id === matchId);
+    if (!targetGame || !targetGame.isVersus) {
+      throw new Error('Match not found or not a versus match');
     }
 
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_match_winner',
-      details: `Set winner for match ${match.eventTitle}: Team ${winner}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
+    // Determine which team name corresponds to A/B
+    const winnerTeamName = winner === "A" ? targetGame.teams[0].name : targetGame.teams[1].name;
+    
+    await unifiedTeamGamesService.setMatchWinner(matchId, winnerTeamName, adminEmail, adminName);
   },
 
+  // Undo winner (clear all winner flags)
   async undoWinner(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    const matchRef = doc(db, TEAM_MATCHES_COLLECTION, matchId);
-    const matchDoc = await getDoc(matchRef);
-    
-    if (!matchDoc.exists()) throw new Error('Match not found');
-    
-    const match = matchDoc.data() as ClusterTeamMatch;
-    
-    if (!match.winner) throw new Error('No winner to undo');
-
-    // Update match to remove winner
-    await updateDoc(matchRef, {
-      winner: null,
-      undoneAt: serverTimestamp()
-    });
-
-    // Revert team statistics
-    const teamsRef = collection(db, TEAMS_COLLECTION);
-    const winnerTeamId = match.winner === "A" ? match.teamA : match.teamB;
-    const loserTeamId = match.winner === "A" ? match.teamB : match.teamA;
-
-    const winnerTeamDoc = await getDoc(doc(teamsRef, winnerTeamId));
-    const loserTeamDoc = await getDoc(doc(teamsRef, loserTeamId));
-
-    if (winnerTeamDoc.exists() && loserTeamDoc.exists()) {
-      const batch = writeBatch(db);
-      
-      // Revert winner stats
-      batch.update(doc(teamsRef, winnerTeamId), {
-        wins: Math.max(0, (winnerTeamDoc.data() as ClusterTeam).wins - 1),
-        totalScore: Math.max(0, (winnerTeamDoc.data() as ClusterTeam).totalScore - match.winningPoints)
-      });
-
-      // Revert loser stats
-      batch.update(doc(teamsRef, loserTeamId), {
-        losses: Math.max(0, (loserTeamDoc.data() as ClusterTeam).losses - 1),
-        totalScore: (loserTeamDoc.data() as ClusterTeam).totalScore - match.losingPoints // Remove losing points
-      });
-
-      await batch.commit();
-    }
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_match_undo',
-      details: `Undid winner for match ${match.eventTitle}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
+    await unifiedTeamGamesService.undoMatchWinner(matchId, adminEmail, adminName);
   },
 
+  // Delete a versus match
   async delete(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await deleteDoc(doc(db, TEAM_MATCHES_COLLECTION, matchId));
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      details: `Deleted team match with ID: ${matchId}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
+    await unifiedTeamGamesService.deleteGame(matchId, adminEmail, adminName);
   },
 
+  // Archive a versus match
   async archive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await updateDoc(doc(db, TEAM_MATCHES_COLLECTION, matchId), {
-      archived: true,
-      isActive: false,
-      archivedAt: serverTimestamp()
-    });
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_match_archive',
-      details: `Archived team match with ID: ${matchId}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
+    await unifiedTeamGamesService.archiveGame(matchId, adminEmail, adminName);
   },
 
+  // Unarchive a versus match
   async unarchive(matchId: string, adminEmail: string, adminName: string): Promise<void> {
-    await updateDoc(doc(db, TEAM_MATCHES_COLLECTION, matchId), {
-      archived: false,
-      unarchivedAt: serverTimestamp()
-    });
-
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_match_unarchive',
-      details: `Unarchived team match with ID: ${matchId}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
+    await unifiedTeamGamesService.updateGameStatus(matchId, 'active', adminEmail, adminName);
   }
 };
 
@@ -724,47 +504,358 @@ export const championsService = {
 // Settings operations
 export const TEAM_GAMES_COLLECTION = 'teamGames';
 
-export const teamGamesService = {
-  async getAll(): Promise<TeamGame[]> {
-    const q = query(collection(db, TEAM_GAMES_COLLECTION), orderBy('updatedAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+
+
+// NEW: Unified Team Games Service (replaces teamGames + clusterTeamMatches)
+export const unifiedTeamGamesService = {
+  async getAll(): Promise<UnifiedTeamGame[]> {
+    const snapshot = await getDocs(collection(db, TEAM_GAMES_COLLECTION));
+    return snapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
-    })) as TeamGame[];
+      title: doc.data().title || '',
+      isTeamGame: doc.data().isTeamGame || false,
+      isVersus: doc.data().isVersus || false,
+      pointsVersus: doc.data().pointsVersus,
+      teams: doc.data().teams || [],
+      status: doc.data().status || 'active',
+      showTop5: doc.data().showTop5 || false,
+      showTop3: doc.data().showTop3 || false,
+      createdAt: doc.data().createdAt,
+      updatedAt: doc.data().updatedAt
+    } as UnifiedTeamGame));
   },
 
-  subscribe(callback: (teamGames: TeamGame[]) => void) {
-    const q = query(collection(db, TEAM_GAMES_COLLECTION), orderBy('updatedAt', 'desc'));
-    return onSnapshot(q, (querySnapshot) => {
-      const teamGames = querySnapshot.docs.map(doc => ({
+  subscribe(callback: (games: UnifiedTeamGame[]) => void) {
+    return onSnapshot(collection(db, TEAM_GAMES_COLLECTION), (snapshot) => {
+      const games = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data()
-      })) as TeamGame[];
-      callback(teamGames);
+        title: doc.data().title || '',
+        isTeamGame: doc.data().isTeamGame || false,
+        isVersus: doc.data().isVersus || false,
+        pointsVersus: doc.data().pointsVersus,
+        teams: doc.data().teams || [],
+        status: doc.data().status || 'active',
+        showTop5: doc.data().showTop5 || false,
+        showTop3: doc.data().showTop3 || false,
+        createdAt: doc.data().createdAt,
+        updatedAt: doc.data().updatedAt
+      } as UnifiedTeamGame));
+      callback(games);
     });
   },
 
-  async add(teamGame: Omit<TeamGame, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  // Create Team Game (cluster team mode ON)
+  async createTeamGame(
+    title: string,
+    teams: { name: string; clusters: string[] }[],
+    adminEmail: string,
+    adminName: string
+  ): Promise<string> {
     const docRef = await addDoc(collection(db, TEAM_GAMES_COLLECTION), {
-      ...teamGame,
+      title,
+      isTeamGame: true,
+      isVersus: false,
+      teams: teams.map(team => ({
+        ...team,
+        points: 0,
+        isActive: true,
+        isWinner: false
+      })),
+      status: 'active',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'team_game_create',
+      details: `Created team game: ${title} with ${teams.length} teams`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+
     return docRef.id;
   },
 
-  async update(id: string, updates: Partial<TeamGame>): Promise<void> {
-    const docRef = doc(db, TEAM_GAMES_COLLECTION, id);
-    await updateDoc(docRef, {
-      ...updates,
+  // Create Versus Match (cluster team mode OFF)
+  async createVersusMatch(
+    title: string,
+    teamA: { name: string; clusters: string[] },
+    teamB: { name: string; clusters: string[] },
+    winnerPoints: number,
+    loserPoints: number,
+    adminEmail: string,
+    adminName: string
+  ): Promise<string> {
+    const docRef = await addDoc(collection(db, TEAM_GAMES_COLLECTION), {
+      title,
+      isTeamGame: false,
+      isVersus: true,
+      pointsVersus: {
+        winner_points: winnerPoints,
+        loser_points: loserPoints
+      },
+      teams: [
+        { ...teamA, points: 0, isActive: true, isWinner: false },
+        { ...teamB, points: 0, isActive: true, isWinner: false }
+      ],
+      status: 'active',
+      createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'versus_match_create',
+      details: `Created versus match: ${title} - ${teamA.name} vs ${teamB.name}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+
+    return docRef.id;
+  },
+
+  // Set winner for versus matches
+  async setMatchWinner(
+    matchId: string,
+    winnerTeamName: string,
+    adminEmail: string,
+    adminName: string
+  ): Promise<void> {
+    const matchRef = doc(db, TEAM_GAMES_COLLECTION, matchId);
+    const matchDoc = await getDoc(matchRef);
+    
+    if (!matchDoc.exists()) throw new Error('Match not found');
+    
+    const match = matchDoc.data() as UnifiedTeamGame;
+    
+    if (!match.isVersus) throw new Error('Cannot set winner for team games');
+    
+    // Update teams array to set winner
+    const updatedTeams = match.teams.map(team => ({
+      ...team,
+      isWinner: team.name === winnerTeamName,
+      points: team.name === winnerTeamName ? match.pointsVersus?.winner_points : match.pointsVersus?.loser_points
+    }));
+
+    await updateDoc(matchRef, {
+      teams: updatedTeams,
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'versus_match_winner',
+      details: `Set winner for match ${match.title}: ${winnerTeamName}`,
+      timestamp: serverTimestamp(),
+      approved: true
     });
   },
 
-  async delete(id: string): Promise<void> {
-    const docRef = doc(db, TEAM_GAMES_COLLECTION, id);
-    await deleteDoc(docRef);
+  // Update team scores (for team games)
+  async updateTeamScore(
+    gameId: string,
+    teamName: string,
+    points: number,
+    adminEmail: string,
+    adminName: string
+  ): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    const gameDoc = await getDoc(gameRef);
+    
+    if (!gameDoc.exists()) throw new Error('Game not found');
+    
+    const game = gameDoc.data() as UnifiedTeamGame;
+    
+    // Update teams array to set points
+    const updatedTeams = game.teams.map(team => ({
+      ...team,
+      points: team.name === teamName ? points : team.points
+    }));
+
+    await updateDoc(gameRef, {
+      teams: updatedTeams,
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'team_game_score_update',
+      details: `Updated score for team ${teamName} in game ${game.title}: ${points} points`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Undo winner for versus matches
+  async undoMatchWinner(
+    matchId: string,
+    adminEmail: string,
+    adminName: string
+  ): Promise<void> {
+    const matchRef = doc(db, TEAM_GAMES_COLLECTION, matchId);
+    const matchDoc = await getDoc(matchRef);
+    
+    if (!matchDoc.exists()) throw new Error('Match not found');
+    
+    const match = matchDoc.data() as UnifiedTeamGame;
+    
+    if (!match.isVersus) throw new Error('Cannot undo winner for team games');
+    
+    // Check if there's a winner to undo
+    const hasWinner = match.teams.some(team => team.isWinner);
+    if (!hasWinner) throw new Error('No winner to undo');
+    
+    // Update teams array to remove winner and reset points
+    const updatedTeams = match.teams.map(team => ({
+      ...team,
+      isWinner: false,
+      points: 0 // Reset points to 0 when undoing
+    }));
+
+    await updateDoc(matchRef, {
+      teams: updatedTeams,
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'versus_match_winner_undo',
+      details: `Undid winner for match ${match.title}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Archive games (sets status to 'archived')
+  async archiveGame(gameId: string, adminEmail: string, adminName: string): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    await updateDoc(gameRef, {
+      status: 'archived',
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'game_archive',
+      details: `Archived game: ${gameId}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  async deleteGame(gameId: string, adminEmail: string, adminName: string): Promise<void> {
+    await deleteDoc(doc(db, TEAM_GAMES_COLLECTION, gameId));
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'game_delete',
+      details: `Deleted game: ${gameId}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  async updateGameStatus(gameId: string, status: 'active' | 'archived', adminEmail: string, adminName: string): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    await updateDoc(gameRef, {
+      status,
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'game_status_update',
+      details: `Updated game ${gameId} status to: ${status}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Unarchive games (sets status to 'active' - equivalent to unretire)
+  async unarchiveGame(gameId: string, adminEmail: string, adminName: string): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    await updateDoc(gameRef, {
+      status: 'active',
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'game_unarchive',
+      details: `Unarchived game: ${gameId}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Update game visibility (showTop5)
+  async updateGameVisibility(gameId: string, showTop5: boolean, adminEmail: string, adminName: string): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    await updateDoc(gameRef, {
+      showTop5,
+      showTop3: false, // Ensure these are mutually exclusive
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'game_visibility',
+      details: `Updated game ${gameId} visibility - showTop5: ${showTop5}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
+  },
+
+  // Update game top3 setting
+  async updateGameTop3(gameId: string, showTop3: boolean, adminEmail: string, adminName: string): Promise<void> {
+    const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
+    await updateDoc(gameRef, {
+      showTop3,
+      showTop5: false, // Ensure these are mutually exclusive
+      updatedAt: serverTimestamp()
+    });
+
+    // Log the action
+    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+    await setDoc(adminLogRef, {
+      adminEmail,
+      adminName,
+      action: 'game_top3_update',
+      details: `Updated game ${gameId} top3 setting - showTop3: ${showTop3}`,
+      timestamp: serverTimestamp(),
+      approved: true
+    });
   }
 };
 
@@ -871,7 +962,7 @@ export const settingsService = {
   },
 };
 
-// Unified Config Service (NEW)
+// Unified Config Service 
 export const configService = {
   // Get unified config document
   async getGlobalConfig(): Promise<{

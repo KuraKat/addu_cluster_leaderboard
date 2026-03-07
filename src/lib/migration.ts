@@ -1,4 +1,4 @@
-import { gamesService, clusterTeamsService, clusterTeamMatchesService, settingsService } from './firestore';
+import { gamesService, clusterTeamMatchesService, settingsService } from './firestore';
 import { Game, ClusterName, ALL_CLUSTERS } from '@/types/leaderboard';
 
 // Migration script to move data from localStorage to Firestore

@@ -56,7 +56,7 @@ interface ScoreStore {
   removeGame: (gameId: string) => void;
   retireGame: (gameId: string) => void;
   unretireGame: (gameId: string) => void;
-  updateGameVisibility: (gameId: string, showTopOnly: boolean) => void;
+  updateGameVisibility: (gameId: string, showTop5: boolean) => void;
   updateGameTop3: (gameId: string, showTop3: boolean) => void;
   addGrandFinals: (title: string, clusterA: ClusterName, clusterB: ClusterName) => void;
   removeGrandFinals: (id: string) => void;
@@ -158,9 +158,9 @@ export const useScoreStore = create<ScoreStore>((set, get) => ({
     set({ games });
   },
 
-  updateGameVisibility: (gameId, showTopOnly) => {
+  updateGameVisibility: (gameId, showTop5) => {
     const games = get().games.map((g) =>
-      g.id === gameId ? { ...g, showTopOnly } : g
+      g.id === gameId ? { ...g, showTop5 } : g
     );
     save(STORAGE_KEY, games);
     set({ games });

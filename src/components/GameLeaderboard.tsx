@@ -10,9 +10,9 @@ export default function GameLeaderboard({ game }: { game: Game }) {
   const ranking = getGameRanking(game)
     .filter((e) => e.score > 0);
   
-  // Apply top limits with exclusive logic: showTop3 > showTopOnly > show all
+  // Apply top limits with exclusive logic: showTop5 > showTop3 > show all
   const displayRanking = game.showTop3 ? ranking.slice(0, 3) : 
-                        game.showTopOnly ? ranking.slice(0, 5) : 
+                        game.showTop5 ? ranking.slice(0, 5) : 
                         ranking;
 
   if (ranking.length === 0) return null;

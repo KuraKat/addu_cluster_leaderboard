@@ -1,25 +1,18 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ClusterTeamMatch, ClusterTeam } from '@/types/leaderboard';
-import { CLUSTER_CONFIG, ALL_CLUSTERS } from '@/types/leaderboard';
-import { Trophy, Users, Swords } from 'lucide-react';
-import { useLeaderboardData } from '@/hooks/useLeaderboardData';
+import { motion, AnimatePresence } from "framer-motion";
+import { Trophy, RotateCcw, Crown, Swords } from "lucide-react";
+import { CLUSTER_CONFIG, ALL_CLUSTERS, ClusterName, UnifiedTeamGame } from "@/types/leaderboard";
+import { useLeaderboardData } from "@/hooks/useLeaderboardData";
 
 interface ClusterTeamMatchSlideProps {
-  match: ClusterTeamMatch;
-  teamA: ClusterTeam;
-  teamB: ClusterTeam;
-  onComplete?: () => void;
+  match: UnifiedTeamGame;
   isAdmin?: boolean;
-  onSetWinner?: (matchId: string, winner: "A" | "B") => void;
+  onSetWinner?: (matchId: string, winnerTeamName: string) => void;
   onUndoWinner?: (matchId: string) => void;
 }
 
 export default function ClusterTeamMatchSlide({ 
   match, 
-  teamA, 
-  teamB, 
-  onComplete, 
   isAdmin = false,
   onSetWinner,
   onUndoWinner 
@@ -28,22 +21,49 @@ export default function ClusterTeamMatchSlide({
   const [showWinner, setShowWinner] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
+  // Helper function to get cluster logos for a team name
+  const getTeamClusterLogos = (teamName: string) => {
+    // Find the team in the match
+    const team = match.teams.find(t => t.name === teamName);
+    if (!team || !team.clusters) return [];
+    
+    // Return all clusters for this team with their logos and colors
+    return team.clusters.map((clusterName) => {
+      const config = CLUSTER_CONFIG[clusterName as ClusterName];
+      return {
+        name: clusterName,
+        logo: getClusterLogoPath(clusterName),
+        color: config?.color || 'text-gray-400',
+        borderColor: config?.borderColor || 'border-gray-400',
+        bgColor: config?.bgColor || 'bg-gray-400/20'
+      };
+    });
+  };
+
+  // Helper function to determine winner
+  const getWinner = () => {
+    const winningTeam = match.teams.find(team => team.isWinner);
+    return winningTeam ? winningTeam.name : null;
+  };
+
+  const winner = getWinner();
+
   useEffect(() => {
-    if (match.winner) {
+    if (winner) {
       const timer = setTimeout(() => {
         setShowWinner(true);
         setIsAnimating(true);
-      }, 1000);
+      }, 500);
       return () => clearTimeout(timer);
     } else {
       setShowWinner(false);
       setIsAnimating(false);
     }
-  }, [match.winner]);
+  }, [winner]);
 
-  const handleSetWinner = (winner: "A" | "B") => {
+  const handleSetWinner = (teamName: string) => {
     if (onSetWinner) {
-      onSetWinner(match.id, winner);
+      onSetWinner(match.id, teamName);
     }
   };
 
@@ -53,46 +73,32 @@ export default function ClusterTeamMatchSlide({
     }
   };
 
-  const getTeamClustersDisplay = (clusters: string[]) => {
-    return clusters.map(cluster => {
-      const config = CLUSTER_CONFIG[cluster];
-      return (
-        <div key={cluster} className="flex flex-col items-center gap-2">
-          <div className={`w-32 h-32 md:w-40 md:h-40 rounded-full border-4 ${config.borderColor} bg-card/60 flex items-center justify-center overflow-hidden`}>
-            <img 
-              src={getClusterLogoPath(cluster)}
-              alt={cluster}
-              className="w-24 h-24 md:w-32 md:h-32 rounded-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
-          </div>
-          <span className={`font-display text-xl md:text-2xl font-bold ${config.color}`}>{cluster}</span>
-        </div>
-      );
-    });
-  };
+  const teamA = match.teams[0];
+  const teamB = match.teams[1];
 
-  const getWinnerTeam = () => {
-    if (!match.winner) return null;
-    return match.winner === "A" ? teamA : teamB;
-  };
-
-  const getLoserTeam = () => {
-    if (!match.winner) return null;
-    return match.winner === "A" ? teamB : teamA;
-  };
+  if (!teamA || !teamB) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">Invalid match data</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center p-8">
+    <div className="flex flex-col items-center justify-center h-full">
       {/* Title */}
       <motion.div
         initial={{ opacity: 0, y: -50 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-12"
       >
-        <h1 className="font-display text-6xl font-bold text-foreground mb-4">{match.eventTitle}</h1>
+        <motion.h2
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="font-display text-2xl sm:text-3xl md:text-5xl font-black tracking-widest text-gradient-gold mb-4 sm:mb-6 md:mb-8"
+        >
+          {match.title}
+        </motion.h2>
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: "100%" }}
@@ -107,16 +113,16 @@ export default function ClusterTeamMatchSlide({
         <motion.div
           initial={{ opacity: 0, x: -100 }}
           animate={{ 
-            opacity: showWinner && match.winner === "B" ? 0.3 : 1, 
-            x: showWinner && match.winner === "B" ? -50 : 0,
-            scale: showWinner && match.winner === "A" ? 1.1 : 1
+            opacity: showWinner && winner === teamA.name ? 0.3 : 1, 
+            x: showWinner && winner === teamA.name ? -50 : 0,
+            scale: showWinner && winner === teamA.name ? 1.1 : 1
           }}
           transition={{ 
             duration: 0.3,
             ease: "easeInOut"
           }}
           className={`flex-1 text-center p-8 rounded-2xl border-2 ${
-            showWinner && match.winner === "A" 
+            showWinner && winner === teamA.name 
               ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20 transform scale-105' 
               : 'border-white/20 bg-white/5'
           }`}
@@ -124,7 +130,31 @@ export default function ClusterTeamMatchSlide({
           <h3 className="font-display text-2xl font-semibold text-blue-400 mb-6">{teamA.name}</h3>
           
           <div className="flex flex-wrap gap-4 justify-center mb-6">
-            {getTeamClustersDisplay(teamA.clusters)}
+            {getTeamClusterLogos(teamA.name).map((cluster, idx) => (
+              <div key={idx} className="flex flex-col items-center gap-2">
+                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full border-4 ${cluster.borderColor} ${cluster.bgColor} flex items-center justify-center overflow-hidden`}>
+                  <img 
+                    src={cluster.logo}
+                    alt={cluster.name}
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <span className={`font-display text-sm md:text-base font-bold ${cluster.color}`}>{cluster.name}</span>
+              </div>
+            ))}
+            {getTeamClusterLogos(teamA.name).length === 0 && (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-blue-500 bg-card/60 flex items-center justify-center">
+                  <span className="font-display text-lg font-bold text-blue-400">
+                    {teamA.name.slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <span className="font-display text-sm md:text-base font-bold text-blue-400">{teamA.name}</span>
+              </div>
+            )}
           </div>
         </motion.div>
 
@@ -134,7 +164,7 @@ export default function ClusterTeamMatchSlide({
           animate={{ 
             opacity: 1, 
             scale: 1,
-            x: showWinner ? (match.winner === "A" ? 30 : -30) : 0
+            x: showWinner ? (winner === teamA.name ? 30 : -30) : 0
           }}
           transition={{ 
             duration: 0.3,
@@ -144,7 +174,7 @@ export default function ClusterTeamMatchSlide({
         >
           <motion.div
             animate={{
-              rotate: showWinner ? (match.winner === "A" ? -15 : 15) : 0
+              rotate: showWinner ? (winner === teamA.name ? -15 : 15) : 0
             }}
             transition={{ duration: 0.6, ease: "easeInOut" }}
           >
@@ -152,7 +182,7 @@ export default function ClusterTeamMatchSlide({
           </motion.div>
           <motion.div
             animate={{
-              x: showWinner ? (match.winner === "A" ? 20 : -20) : 0
+              x: showWinner ? (winner === teamA.name ? 20 : -20) : 0
             }}
             transition={{ duration: 0.6, ease: "easeInOut" }}
             className="font-display text-4xl font-bold text-muted-foreground"
@@ -165,16 +195,16 @@ export default function ClusterTeamMatchSlide({
         <motion.div
           initial={{ opacity: 0, x: 100 }}
           animate={{ 
-            opacity: showWinner && match.winner === "A" ? 0.3 : 1, 
-            x: showWinner && match.winner === "A" ? 50 : 0,
-            scale: showWinner && match.winner === "B" ? 1.1 : 1
+            opacity: showWinner && winner === teamB.name ? 0.3 : 1, 
+            x: showWinner && winner === teamB.name ? 50 : 0,
+            scale: showWinner && winner === teamB.name ? 1.1 : 1
           }}
           transition={{ 
             duration: 0.3,
             ease: "easeInOut"
           }}
           className={`flex-1 text-center p-8 rounded-2xl border-2 ${
-            showWinner && match.winner === "B" 
+            showWinner && winner === teamB.name 
               ? 'border-yellow-400 bg-yellow-400/10 shadow-2xl shadow-yellow-400/20 transform scale-105' 
               : 'border-white/20 bg-white/5'
           }`}
@@ -182,14 +212,38 @@ export default function ClusterTeamMatchSlide({
           <h3 className="font-display text-2xl font-semibold text-red-400 mb-6">{teamB.name}</h3>
           
           <div className="flex flex-wrap gap-4 justify-center mb-6">
-            {getTeamClustersDisplay(teamB.clusters)}
+            {getTeamClusterLogos(teamB.name).map((cluster, idx) => (
+              <div key={idx} className="flex flex-col items-center gap-2">
+                <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full border-4 ${cluster.borderColor} ${cluster.bgColor} flex items-center justify-center overflow-hidden`}>
+                  <img 
+                    src={cluster.logo}
+                    alt={cluster.name}
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+                <span className={`font-display text-sm md:text-base font-bold ${cluster.color}`}>{cluster.name}</span>
+              </div>
+            ))}
+            {getTeamClusterLogos(teamB.name).length === 0 && (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-red-500 bg-card/60 flex items-center justify-center">
+                  <span className="font-display text-lg font-bold text-red-400">
+                    {teamB.name.slice(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <span className="font-display text-sm md:text-base font-bold text-red-400">{teamB.name}</span>
+              </div>
+            )}
           </div>
         </motion.div>
       </div>
 
       {/* Winner Display */}
       <AnimatePresence>
-        {showWinner && match.winner && (
+        {showWinner && winner && (
           <motion.div
             initial={{ opacity: 0, y: 50, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1.05 }}
@@ -215,7 +269,7 @@ export default function ClusterTeamMatchSlide({
               <div className="flex items-center justify-center gap-4 mb-4">
                 <Trophy className="w-12 h-12 text-yellow-400" />
                 <h2 className="font-display text-4xl font-bold text-yellow-400">
-                  {getWinnerTeam()?.name} Wins!
+                  {winner} Wins!
                 </h2>
                 <Trophy className="w-12 h-12 text-yellow-400" />
               </div>
@@ -240,19 +294,21 @@ export default function ClusterTeamMatchSlide({
       </AnimatePresence>
       
       {/* Admin Win Buttons - Below Teams (only if no winner yet) */}
-      {isAdmin && !match.winner && (
+      {isAdmin && !winner && (
         <div className="mt-8 flex justify-center gap-4">
           <button
-            onClick={() => handleSetWinner("A")}
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg font-body font-medium hover:bg-blue-600 transition-colors"
+            onClick={() => handleSetWinner(teamA.name)}
+            disabled={winner === teamA.name}
+            className="px-3 py-1 bg-blue-500 text-white rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
           >
-            {teamA.name} Wins
+            Set Winner
           </button>
           <button
-            onClick={() => handleSetWinner("B")}
-            className="px-6 py-3 bg-red-500 text-white rounded-lg font-body font-medium hover:bg-red-600 transition-colors"
+            onClick={() => handleSetWinner(teamB.name)}
+            disabled={winner === teamB.name}
+            className="px-3 py-1 bg-red-500 text-white rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-red-600 transition-colors"
           >
-            {teamB.name} Wins
+            Set Winner
           </button>
         </div>
       )}
