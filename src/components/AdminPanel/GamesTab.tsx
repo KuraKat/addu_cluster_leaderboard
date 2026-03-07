@@ -72,10 +72,22 @@ export default function GamesTab({
   // Create the actual team game with all teams
   const handleCreateTeamGame = () => {
     if (createdTeams.length >= 2) {
-      const typedTeams = createdTeams.map(team => ({
-        ...team,
-        clusters: team.clusters as ClusterName[]
-      }));
+      // Validate clusters before creating game
+      const typedTeams = createdTeams.map(team => {
+        const validClusters = team.clusters.filter(cluster => 
+          ALL_CLUSTERS.includes(cluster as ClusterName)
+        ) as ClusterName[];
+        
+        if (validClusters.length === 0) {
+          throw new Error(`Team "${team.name}" must have at least one valid cluster`);
+        }
+        
+        return {
+          ...team,
+          clusters: validClusters
+        };
+      });
+      
       onAddTeamGame(newGameName.trim() || "Team Game", typedTeams);
       // Reset everything
       setCreatedTeams([]);

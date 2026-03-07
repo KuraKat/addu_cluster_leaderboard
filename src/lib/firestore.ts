@@ -742,47 +742,57 @@ export const allUnifiedTeamGamesService = {
       throw new Error('Loser points must be a non-negative number');
     }
 
-    const docRef = await addDoc(collection(db, TEAM_GAMES_COLLECTION), {
-      title: title.trim(),
-      isTeamGame: false,
-      isVersus: true,
-      pointsVersus: {
-        winner_points: winnerPoints,
-        loser_points: loserPoints
-      },
-      teams: [
-        { 
-          name: teamA.name.trim(), 
-          clusters: teamA.clusters || [], 
-          points: 0, 
-          isActive: true, 
-          isWinner: false 
+    // Use transaction to prevent race conditions for both creation and logging
+    const docRef = await runTransaction(db, async (transaction) => {
+      const docRef = doc(collection(db, TEAM_GAMES_COLLECTION));
+      
+      const matchData = {
+        title: title.trim(),
+        isTeamGame: false,
+        isVersus: true,
+        pointsVersus: {
+          winner_points: winnerPoints,
+          loser_points: loserPoints
         },
-        { 
-          name: teamB.name.trim(), 
-          clusters: teamB.clusters || [], 
-          points: 0, 
-          isActive: true, 
-          isWinner: false 
-        }
-      ],
-      status: 'active',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
+        teams: [
+          { 
+            name: teamA.name.trim(), 
+            clusters: teamA.clusters || [], 
+            points: 0, 
+            isActive: true, 
+            isWinner: false 
+          },
+          { 
+            name: teamB.name.trim(), 
+            clusters: teamB.clusters || [], 
+            points: 0, 
+            isActive: true, 
+            isWinner: false 
+          }
+        ],
+        status: 'active',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      // Create the match document
+      transaction.set(docRef, matchData);
+
+      // Create admin log within the same transaction to prevent race conditions
+      const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+      transaction.set(adminLogRef, {
+        adminEmail,
+        adminName,
+        action: 'versus_match_create',
+        details: `Created versus match: ${title.trim()} (${teamA.name.trim()} vs ${teamB.name.trim()})`,
+        timestamp: serverTimestamp(),
+        approved: true
+      });
+
+      return docRef;
     });
 
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'versus_match_create',
-      details: `Created versus match: ${title.trim()} - ${teamA.name.trim()} vs ${teamB.name.trim()}`,
-      timestamp: serverTimestamp(),
-      approved: true
-    });
-
-    return docRef.id;
+    return (await docRef).id;
   },
 
   // Set winner for versus matches
@@ -808,11 +818,16 @@ export const allUnifiedTeamGamesService = {
         throw new Error('Cannot set winner for team games');
       }
       
+      // Validate pointsVersus exists
+      if (!match.pointsVersus) {
+        throw new Error('Match points configuration not found');
+      }
+
       // Update teams array to set winner
       const updatedTeams = match.teams.map(team => ({
         ...team,
         isWinner: team.name === winnerTeamName,
-        points: team.name === winnerTeamName ? match.pointsVersus?.winner_points : match.pointsVersus?.loser_points
+        points: team.name === winnerTeamName ? match.pointsVersus.winner_points : match.pointsVersus.loser_points
       }));
 
       // Update the match
@@ -856,32 +871,47 @@ export const allUnifiedTeamGamesService = {
     }
 
     const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
-    const gameDoc = await getDoc(gameRef);
     
-    if (!gameDoc.exists()) throw new Error('Game not found');
-    
-    const game = gameDoc.data() as UnifiedTeamGame;
-    
-    // Update teams array to set points
-    const updatedTeams = game.teams.map(team => ({
-      ...team,
-      points: team.name === teamName ? points : team.points
-    }));
+    // Use transaction to prevent race conditions for both score update and logging
+    await runTransaction(db, async (transaction) => {
+      const gameDoc = await transaction.get(gameRef);
+      
+      if (!gameDoc.exists()) {
+        throw new Error(ERROR_MESSAGES.GAME_NOT_FOUND);
+      }
+      
+      const game = gameDoc.data() as UnifiedTeamGame;
+      const oldPoints = game.teams.find(t => t.name === teamName)?.points || 0;
+      
+      // Update teams array to set points
+      const updatedTeams = game.teams.map(team => ({
+        ...team,
+        points: team.name === teamName ? points : team.points
+      }));
 
-    await updateDoc(gameRef, {
-      teams: updatedTeams,
-      updatedAt: serverTimestamp()
-    });
+      // Update the game
+      transaction.update(gameRef, {
+        teams: updatedTeams,
+        updatedAt: serverTimestamp()
+      });
 
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'team_game_score_update',
-      details: `Updated score for team ${teamName} in game ${game.title}: ${points} points`,
-      timestamp: serverTimestamp(),
-      approved: true
+      // Create admin log within the same transaction to prevent race conditions
+      const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+      transaction.set(adminLogRef, {
+        adminEmail,
+        adminName,
+        action: 'team_game_score_update',
+        details: `Updated score for team ${teamName} in game ${game.title}: ${oldPoints} to ${points} points`,
+        gameId,
+        gameName: game.title,
+        teamName,
+        oldPoints,
+        newPoints: points,
+        timestamp: serverTimestamp(),
+        approved: true // Direct updates are auto-approved
+      });
+
+      return { game, oldPoints };
     });
   },
 

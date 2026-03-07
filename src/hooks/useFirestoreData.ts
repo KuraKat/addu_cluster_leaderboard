@@ -18,6 +18,7 @@ import {
   GameStatus
 } from '@/types/leaderboard';
 import { useAuth } from './useAuth';
+import { ERROR_MESSAGES } from '@/lib/constants';
 
 interface FirestoreDataStore {
   games: Game[];
@@ -110,11 +111,30 @@ export function useFirestoreData(): FirestoreDataStore {
   // Get admin info for logging with validation
   const getAdminInfo = useCallback(() => {
     if (!user) {
-      throw new Error('User must be authenticated to perform admin actions');
+      throw new Error(ERROR_MESSAGES.AUTH_REQUIRED);
     }
+    
+    if (!user.email) {
+      throw new Error(ERROR_MESSAGES.ACCESS_DENIED + ': User email is required for admin actions');
+    }
+    
+    // Validate admin privileges
+    const adminEmails = [
+      'admin@addu.org',
+      'evan@addu.org',
+      // Add other admin emails here
+    ];
+    
+    const userEmail = user.email.toLowerCase();
+    const isAdmin = adminEmails.includes(userEmail) || userEmail.endsWith('@addu.org');
+    
+    if (!isAdmin) {
+      throw new Error(ERROR_MESSAGES.ACCESS_DENIED);
+    }
+    
     return {
-      email: user.email || 'unknown@admin.com',
-      name: user.displayName || user.email || 'Unknown Admin'
+      email: user.email,
+      name: user.displayName || user.email
     };
   }, [user]);
 

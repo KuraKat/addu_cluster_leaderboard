@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { adminLogsService } from '@/lib/firestore';
 import { AdminLog } from '@/types/leaderboard';
 import { useAuth } from './useAuth';
+import { ERROR_MESSAGES } from '@/lib/constants';
 
 interface AdminDataStore {
   adminLogs: AdminLog[];
@@ -12,7 +13,7 @@ interface AdminDataStore {
 
 // Helper function to check if user has admin privileges
 const hasAdminRole = (user: any): boolean => {
-  if (!user) return false;
+  if (!user || !user.email) return false;
   
   // Check email domain or specific admin emails
   const adminEmails = [
@@ -21,8 +22,8 @@ const hasAdminRole = (user: any): boolean => {
     // Add other admin emails here
   ];
   
-  const userEmail = user.email?.toLowerCase();
-  return adminEmails.includes(userEmail) || userEmail?.endsWith('@addu.org') || false;
+  const userEmail = user.email.toLowerCase();
+  return adminEmails.includes(userEmail) || userEmail.endsWith('@addu.org');
 };
 
 export function useAdminData(): AdminDataStore {
@@ -38,13 +39,13 @@ export function useAdminData(): AdminDataStore {
       
       // Check admin privileges before fetching logs
       if (!hasAdminRole(user)) {
-        throw new Error('Access denied: Admin privileges required');
+        throw new Error(ERROR_MESSAGES.ACCESS_DENIED);
       }
       
       const logs = await adminLogsService.getAll();
       setAdminLogs(logs);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch admin logs');
+      setError(err instanceof Error ? err.message : ERROR_MESSAGES.UNKNOWN_ERROR);
     } finally {
       setLoading(false);
     }
@@ -56,7 +57,7 @@ export function useAdminData(): AdminDataStore {
       refreshLogs();
     } else {
       setLoading(false);
-      setError('Access denied: Admin privileges required');
+      setError(ERROR_MESSAGES.ACCESS_DENIED);
     }
   }, [user, refreshLogs]);
 
