@@ -91,8 +91,8 @@ export const gamesService = {
   async updateScore(gameId: string, cluster: ClusterName, score: number, adminEmail: string, adminName: string) {
     const gameRef = doc(db, GAMES_COLLECTION, gameId);
     
-    // Use transaction to prevent race conditions for the score update only
-    const gameData = await runTransaction(db, async (transaction) => {
+    // Use transaction to prevent race conditions for both score update and logging
+    await runTransaction(db, async (transaction) => {
       const gameDoc = await transaction.get(gameRef);
       
       if (!gameDoc.exists()) {
@@ -108,29 +108,24 @@ export const gamesService = {
         updatedAt: serverTimestamp()
       });
 
-      return { game, oldScore };
-    });
-
-    // Create admin log outside the transaction to avoid race conditions
-    try {
+      // Create admin log within the same transaction to prevent race conditions
       const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-      await setDoc(adminLogRef, {
+      transaction.set(adminLogRef, {
         adminEmail,
         adminName,
         action: AdminLogAction.SCORE_UPDATE,
-        details: `Updated ${cluster} score from ${gameData.oldScore} to ${score} in game: ${gameData.game.name}`,
+        details: `Updated ${cluster} score from ${oldScore} to ${score} in game: ${game.name}`,
         gameId,
-        gameName: gameData.game.name,
+        gameName: game.name,
         cluster,
-        oldScore: gameData.oldScore,
+        oldScore,
         newScore: score,
         timestamp: serverTimestamp(),
         approved: true // Direct updates are auto-approved
       });
-    } catch (logError) {
-      // Log the error but don't fail the operation
-      console.error('Failed to create admin log:', logError);
-    }
+
+      return { game, oldScore };
+    });
   },
 
   // Create new game
@@ -309,14 +304,21 @@ export const clusterTeamMatchesService = {
 
   // Set winner for a versus match (converts A/B to team winner)
   async setWinner(matchId: string, winner: "A" | "B", adminEmail: string, adminName: string): Promise<void> {
-    const game = await allUnifiedTeamGamesService.getAll();
-    const targetGame = game.find(g => g.id === matchId);
-    if (!targetGame || !targetGame.isVersus) {
+    const matchRef = doc(db, TEAM_GAMES_COLLECTION, matchId);
+    const matchDoc = await getDoc(matchRef);
+    
+    if (!matchDoc.exists()) {
+      throw new Error('Match not found');
+    }
+    
+    const match = matchDoc.data() as UnifiedTeamGame;
+    
+    if (!match.isVersus) {
       throw new Error('Match not found or not a versus match');
     }
 
     // Determine which team name corresponds to A/B
-    const winnerTeamName = winner === "A" ? targetGame.teams[0].name : targetGame.teams[1].name;
+    const winnerTeamName = winner === "A" ? match.teams[0].name : match.teams[1].name;
     
     await allUnifiedTeamGamesService.setMatchWinner(matchId, winnerTeamName, adminEmail, adminName);
   },
@@ -686,8 +688,62 @@ export const allUnifiedTeamGamesService = {
     adminEmail: string,
     adminName: string
   ): Promise<string> {
+    // Input validation
+    if (!title || title.trim().length === 0) {
+      throw new Error(ERROR_MESSAGES.GAME_TITLE_REQUIRED);
+    }
+    
+    if (title.trim().length > DB_LIMITS.MAX_GAME_TITLE_LENGTH) {
+      throw new Error(ERROR_MESSAGES.GAME_TITLE_TOO_LONG);
+    }
+    
+    if (!teamA || !teamA.name || teamA.name.trim().length === 0) {
+      throw new Error(ERROR_MESSAGES.TEAM_NAME_REQUIRED + ' for Team A');
+    }
+    
+    if (!teamB || !teamB.name || teamB.name.trim().length === 0) {
+      throw new Error(ERROR_MESSAGES.TEAM_NAME_REQUIRED + ' for Team B');
+    }
+    
+    if (teamA.name.trim() === teamB.name.trim()) {
+      throw new Error(ERROR_MESSAGES.DUPLICATE_VERSUS_TEAMS);
+    }
+    
+    // Validate team names
+    for (const [teamLabel, team] of [['A', teamA], ['B', teamB]] as const) {
+      if (team.name.trim().length > DB_LIMITS.MAX_TEAM_NAME_LENGTH) {
+        throw new Error(ERROR_MESSAGES.TEAM_NAME_TOO_LONG + ` for Team ${teamLabel}`);
+      }
+      
+      if (!VALIDATION_PATTERNS.TEAM_NAME.test(team.name.trim())) {
+        throw new Error(ERROR_MESSAGES.TEAM_NAME_INVALID_CHARS + ` for Team ${teamLabel}`);
+      }
+      
+      // Validate clusters if provided
+      if (team.clusters && team.clusters.length > 0) {
+        if (team.clusters.length > DB_LIMITS.MAX_CLUSTERS_PER_TEAM) {
+          throw new Error(`${ERROR_MESSAGES.MAX_CLUSTERS_EXCEEDED} for Team ${teamLabel}`);
+        }
+        
+        for (const cluster of team.clusters) {
+          if (!ALL_CLUSTERS.includes(cluster as ClusterName)) {
+            throw new Error(`${ERROR_MESSAGES.INVALID_CLUSTER} "${cluster}" for Team ${teamLabel}`);
+          }
+        }
+      }
+    }
+    
+    // Validate points
+    if (typeof winnerPoints !== 'number' || winnerPoints < 0) {
+      throw new Error('Winner points must be a non-negative number');
+    }
+    
+    if (typeof loserPoints !== 'number' || loserPoints < 0) {
+      throw new Error('Loser points must be a non-negative number');
+    }
+
     const docRef = await addDoc(collection(db, TEAM_GAMES_COLLECTION), {
-      title,
+      title: title.trim(),
       isTeamGame: false,
       isVersus: true,
       pointsVersus: {
@@ -695,8 +751,20 @@ export const allUnifiedTeamGamesService = {
         loser_points: loserPoints
       },
       teams: [
-        { ...teamA, points: 0, isActive: true, isWinner: false },
-        { ...teamB, points: 0, isActive: true, isWinner: false }
+        { 
+          name: teamA.name.trim(), 
+          clusters: teamA.clusters || [], 
+          points: 0, 
+          isActive: true, 
+          isWinner: false 
+        },
+        { 
+          name: teamB.name.trim(), 
+          clusters: teamB.clusters || [], 
+          points: 0, 
+          isActive: true, 
+          isWinner: false 
+        }
       ],
       status: 'active',
       createdAt: serverTimestamp(),
@@ -709,7 +777,7 @@ export const allUnifiedTeamGamesService = {
       adminEmail,
       adminName,
       action: 'versus_match_create',
-      details: `Created versus match: ${title} - ${teamA.name} vs ${teamB.name}`,
+      details: `Created versus match: ${title.trim()} - ${teamA.name.trim()} vs ${teamB.name.trim()}`,
       timestamp: serverTimestamp(),
       approved: true
     });
@@ -718,42 +786,51 @@ export const allUnifiedTeamGamesService = {
   },
 
   // Set winner for versus matches
-  async setMatchWinner(
+  async setWinner(
     matchId: string,
     winnerTeamName: string,
     adminEmail: string,
     adminName: string
   ): Promise<void> {
     const matchRef = doc(db, TEAM_GAMES_COLLECTION, matchId);
-    const matchDoc = await getDoc(matchRef);
     
-    if (!matchDoc.exists()) throw new Error('Match not found');
-    
-    const match = matchDoc.data() as UnifiedTeamGame;
-    
-    if (!match.isVersus) throw new Error('Cannot set winner for team games');
-    
-    // Update teams array to set winner
-    const updatedTeams = match.teams.map(team => ({
-      ...team,
-      isWinner: team.name === winnerTeamName,
-      points: team.name === winnerTeamName ? match.pointsVersus?.winner_points : match.pointsVersus?.loser_points
-    }));
+    // Use transaction for atomic update and logging
+    await runTransaction(db, async (transaction) => {
+      const matchDoc = await transaction.get(matchRef);
+      
+      if (!matchDoc.exists()) {
+        throw new Error('Match not found');
+      }
+      
+      const match = matchDoc.data() as UnifiedTeamGame;
+      
+      if (!match.isVersus) {
+        throw new Error('Cannot set winner for team games');
+      }
+      
+      // Update teams array to set winner
+      const updatedTeams = match.teams.map(team => ({
+        ...team,
+        isWinner: team.name === winnerTeamName,
+        points: team.name === winnerTeamName ? match.pointsVersus?.winner_points : match.pointsVersus?.loser_points
+      }));
 
-    await updateDoc(matchRef, {
-      teams: updatedTeams,
-      updatedAt: serverTimestamp()
-    });
+      // Update the match
+      transaction.update(matchRef, {
+        teams: updatedTeams,
+        updatedAt: serverTimestamp()
+      });
 
-    // Log the action
-    const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
-    await setDoc(adminLogRef, {
-      adminEmail,
-      adminName,
-      action: 'versus_match_winner',
-      details: `Set winner for match ${match.title}: ${winnerTeamName}`,
-      timestamp: serverTimestamp(),
-      approved: true
+      // Create admin log within transaction
+      const adminLogRef = doc(collection(db, ADMIN_LOGS_COLLECTION));
+      transaction.set(adminLogRef, {
+        adminEmail,
+        adminName,
+        action: 'versus_match_winner',
+        details: `Set winner for match ${match.title}: ${winnerTeamName}`,
+        timestamp: serverTimestamp(),
+        approved: true
+      });
     });
   },
 
@@ -765,6 +842,19 @@ export const allUnifiedTeamGamesService = {
     adminEmail: string,
     adminName: string
   ): Promise<void> {
+    // Input validation
+    if (typeof points !== 'number') {
+      throw new Error('Points must be a number');
+    }
+    
+    if (points < DB_LIMITS.MIN_POINTS_PER_TEAM || points > DB_LIMITS.MAX_POINTS_PER_TEAM) {
+      throw new Error(`Points must be between ${DB_LIMITS.MIN_POINTS_PER_TEAM} and ${DB_LIMITS.MAX_POINTS_PER_TEAM}`);
+    }
+    
+    if (!teamName || teamName.trim().length === 0) {
+      throw new Error('Team name is required');
+    }
+
     const gameRef = doc(db, TEAM_GAMES_COLLECTION, gameId);
     const gameDoc = await getDoc(gameRef);
     
@@ -952,6 +1042,16 @@ export const allUnifiedTeamGamesService = {
       timestamp: serverTimestamp(),
       approved: true
     });
+  },
+
+  // Set match winner (alias for setWinner to maintain API compatibility)
+  async setMatchWinner(
+    matchId: string,
+    winnerTeamName: string,
+    adminEmail: string,
+    adminName: string
+  ): Promise<void> {
+    return this.setWinner(matchId, winnerTeamName, adminEmail, adminName);
   }
 };
 

@@ -198,10 +198,10 @@ export function useFirestoreData(): FirestoreDataStore {
   }, [fetchChampionsData]);
 
   // Game operations
-  const updateScore = useCallback(async (gameId: string, cluster: string, score: number) => {
+  const updateScore = useCallback(async (gameId: string, cluster: ClusterName, score: number) => {
     try {
       const adminInfo = getAdminInfo();
-      await gamesService.updateScore(gameId, cluster as any, score, adminInfo.email, adminInfo.name);
+      await gamesService.updateScore(gameId, cluster, score, adminInfo.email, adminInfo.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update score');
       throw err;
@@ -232,7 +232,9 @@ export function useFirestoreData(): FirestoreDataStore {
     try {
       const adminInfo = getAdminInfo();
       await gamesService.retire(gameId, adminInfo.email, adminInfo.name);
-      // Refresh champions since retiring a game creates a new champion
+      // Invalidate champions cache and refresh since retiring a game creates a new champion
+      championsCacheRef.current = [];
+      lastChampionsFetchRef.current = 0;
       await fetchChampionsData(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to retire game');

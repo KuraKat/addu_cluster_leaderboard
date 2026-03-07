@@ -10,6 +10,7 @@ export class SubscriptionManager {
     totalCleanedUp: 0,
     activeListeners: 0
   };
+  private cleanupTimeouts: Map<string, NodeJS.Timeout> = new Map();
 
   // Subscribe to multiple collections with a single listener management system
   subscribeToMultiple(
@@ -22,6 +23,13 @@ export class SubscriptionManager {
     const unsubscribers: Unsubscribe[] = [];
 
     subscriptions.forEach(({ key, subscribe, callback }) => {
+      // Clear any existing cleanup timeout for this key
+      const existingTimeout = this.cleanupTimeouts.get(key);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+        this.cleanupTimeouts.delete(key);
+      }
+
       // Add listener to the set for this key
       if (!this.listeners.has(key)) {
         this.listeners.set(key, new Set());
@@ -54,7 +62,7 @@ export class SubscriptionManager {
       }
     });
 
-    // Return cleanup function
+    // Return cleanup function with defensive checks
     return () => {
       subscriptions.forEach(({ key, callback }) => {
         const listeners = this.listeners.get(key);
@@ -62,15 +70,28 @@ export class SubscriptionManager {
           listeners.delete(callback);
           this.subscriptionStats.activeListeners--;
           
-          // If no more listeners, clean up the Firebase subscription
+          // If no more listeners, schedule cleanup with a delay to handle rapid unmount/remount
           if (listeners.size === 0) {
-            const unsubscribe = this.subscriptions.get(key);
-            if (unsubscribe) {
-              unsubscribe();
-              this.subscriptions.delete(key);
-              this.subscriptionStats.totalCleanedUp++;
-            }
-            this.listeners.delete(key);
+            const cleanupTimeout = setTimeout(() => {
+              // Double-check that no new listeners were added during the timeout
+              const currentListeners = this.listeners.get(key);
+              if (currentListeners && currentListeners.size === 0) {
+                const unsubscribe = this.subscriptions.get(key);
+                if (unsubscribe) {
+                  try {
+                    unsubscribe();
+                  } catch (error) {
+                    console.error(`Error during subscription cleanup for ${key}:`, error);
+                  }
+                  this.subscriptions.delete(key);
+                  this.subscriptionStats.totalCleanedUp++;
+                }
+                this.listeners.delete(key);
+              }
+              this.cleanupTimeouts.delete(key);
+            }, 100); // 100ms delay to handle rapid unmount/remount
+            
+            this.cleanupTimeouts.set(key, cleanupTimeout);
           }
         }
       });
@@ -95,6 +116,10 @@ export class SubscriptionManager {
 
   // Cleanup all subscriptions
   cleanup(): void {
+    // Clear all cleanup timeouts
+    this.cleanupTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.cleanupTimeouts.clear();
+    
     this.subscriptions.forEach(unsubscribe => {
       try {
         unsubscribe();
