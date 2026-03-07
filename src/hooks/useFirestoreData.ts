@@ -114,14 +114,6 @@ export function useFirestoreData(): FirestoreDataStore {
       throw new Error(ERROR_MESSAGES.AUTH_REQUIRED);
     }
     
-    // Allow anonymous users in development mode
-    const isDevelopment = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-    if (isDevelopment && user.isAnonymous) {
-      return {
-        email: 'anonymous@localhost',
-        name: 'Anonymous Admin'
-      };
-    }
     
     if (!user.email) {
       throw new Error(ERROR_MESSAGES.ACCESS_DENIED + ': User email is required for admin actions');
